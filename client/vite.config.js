@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'GullyCric',
         short_name: 'GullyCric',
-        theme_color: '#16A34A',
+        theme_color: '#F97316',
         background_color: '#0F172A',
         display: 'standalone',
         start_url: '/',

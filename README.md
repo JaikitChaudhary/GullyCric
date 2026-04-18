@@ -38,6 +38,10 @@ cd server && npm run dev
 - Share link
 - Score live
 
+### Environment Variables
+- Copy `.env.example` to `.env` in respective folders
+- Update with production URLs
+
 ## Future Improvements
 - Player stats
 - Tournament mode
