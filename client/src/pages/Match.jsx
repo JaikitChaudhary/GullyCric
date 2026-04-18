@@ -5,6 +5,7 @@ import Controls from '../components/Controls.jsx';
 import useSocket from '../hooks/useSocket.js';
 import InstallPrompt from '../components/InstallPrompt.jsx';
 import OfflineNotice from '../components/OfflineNotice.jsx';
+import Footer from '../components/Footer.jsx';
 import useInstallPrompt from '../hooks/useInstallPrompt.js';
 import useOnlineStatus from '../hooks/useOnlineStatus.js';
 
@@ -244,6 +245,7 @@ function Match() {
               )}
             </>
           )}
+          <Footer />
         </div>
       </div>
     </div>
