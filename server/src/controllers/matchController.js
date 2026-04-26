@@ -2,6 +2,7 @@ import Match from '../models/Match.js';
 import crypto from 'node:crypto';
 import {
   addRun as addRunToMatch,
+  addWide as addWideToMatch,
   addWicket as addWicketToMatch,
   serializeMatch,
   undoLastAction,
@@ -63,17 +64,22 @@ const emitScoringEvents = (request, match, scoringEvent) => {
 
 export const createMatch = async (request, reply) => {
   try {
-    const { name, overs } = request.body;
+    const { name, teamAName, teamBName, overs } = request.body;
     const parsedOvers = Number(overs);
+    const sanitizedTeamAName = teamAName?.trim();
+    const sanitizedTeamBName = teamBName?.trim();
+    const matchName = name?.trim() || `${sanitizedTeamAName} vs ${sanitizedTeamBName}`;
 
-    if (!name || !Number.isInteger(parsedOvers) || parsedOvers < 1) {
-      return reply.status(400).send({ error: 'Name and overs are required' });
+    if (!sanitizedTeamAName || !sanitizedTeamBName || !Number.isInteger(parsedOvers) || parsedOvers < 1) {
+      return reply.status(400).send({ error: 'Team names and overs are required' });
     }
 
     const matchCode = await generateMatchCode();
 
     const match = await Match.create({
-      name,
+      name: matchName,
+      teamAName: sanitizedTeamAName,
+      teamBName: sanitizedTeamBName,
       matchCode,
       ownerToken: crypto.randomBytes(24).toString('hex'),
       maxOvers: parsedOvers,
@@ -179,6 +185,36 @@ export const addWicket = async (request, reply) => {
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Failed to add wicket' });
+  }
+};
+
+export const addWide = async (request, reply) => {
+  try {
+    const { code } = request.params;
+    const match = await findMatchByCodeWithOwnerToken(code);
+
+    if (!match) {
+      return reply.status(404).send({ error: 'Match not found' });
+    }
+
+    if (!requireOwnerAccess(request, reply, match)) {
+      return;
+    }
+
+    let scoringEvent;
+    try {
+      scoringEvent = addWideToMatch(match);
+    } catch (error) {
+      return reply.status(400).send({ error: error.message });
+    }
+
+    await match.save();
+    emitScoringEvents(request, match, scoringEvent);
+
+    return reply.send(buildMatchResponse(match));
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ error: 'Failed to add wide' });
   }
 };
 

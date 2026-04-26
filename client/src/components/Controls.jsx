@@ -1,6 +1,6 @@
 const scoringButtons = [0, 1, 2, 3, 4, 6];
 
-function Controls({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket }) {
+function Controls({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, onWide }) {
   if (!isOwner) {
     return (
       <div className="rounded-[1.75rem] border border-orange-300/20 bg-orange-400/10 px-4 py-5 text-center text-sm font-semibold uppercase tracking-[0.22em] text-orange-100 shadow-[0_18px_50px_rgba(249,115,22,0.08)] backdrop-blur">
@@ -23,6 +23,14 @@ function Controls({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket })
             {score}
           </button>
         ))}
+        <button
+          type="button"
+          disabled={loadingAction || disabled}
+          onClick={onWide}
+          className="rounded-full border border-amber-200/25 bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-4 text-lg font-bold text-slate-950 shadow-[0_16px_36px_rgba(251,191,36,0.3)] transition-all duration-200 hover:scale-105 hover:shadow-[0_20px_42px_rgba(251,191,36,0.38)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          WD
+        </button>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button

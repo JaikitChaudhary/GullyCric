@@ -5,13 +5,20 @@ const historySchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['run', 'wicket'],
+      enum: ['run', 'wicket', 'wide', 'WD'],
       required: true,
     },
     value: {
       type: Number,
       required: true,
       min: 0,
+    },
+    runs: {
+      type: Number,
+      min: 0,
+    },
+    isBall: {
+      type: Boolean,
     },
   },
   {
@@ -53,6 +60,16 @@ const previousInningsStateSchema = new mongoose.Schema(
 
 const matchSchema = new mongoose.Schema(
   {
+    teamAName: {
+      type: String,
+      trim: true,
+      default: 'Team 1',
+    },
+    teamBName: {
+      type: String,
+      trim: true,
+      default: 'Team 2',
+    },
     name: {
       type: String,
       required: true,

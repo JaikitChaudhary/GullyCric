@@ -21,7 +21,47 @@ export const serializeMatch = (match) => {
 
 const cloneHistory = (history = []) => history.map((entry) => ({ ...entry }));
 
-const createHistoryEntry = (type, value) => ({ type, value });
+const createHistoryEntry = ({ type, value, runs, isBall }) => ({ type, value, runs, isBall });
+
+const getEventRuns = (entry) => {
+  if (typeof entry?.runs === 'number') {
+    return entry.runs;
+  }
+
+  if (entry?.type === 'run') {
+    return Number(entry?.value) || 0;
+  }
+
+  if (entry?.type === 'wide' || entry?.type === 'WD') {
+    return Number(entry?.value) || 1;
+  }
+
+  return 0;
+};
+
+const isBallEvent = (entry) => {
+  if (typeof entry?.isBall === 'boolean') {
+    return entry.isBall;
+  }
+
+  return entry?.type === 'run' || entry?.type === 'wicket';
+};
+
+const getEventWickets = (entry) => {
+  if (entry?.type !== 'wicket') {
+    return 0;
+  }
+
+  return Number(entry?.value) || 1;
+};
+
+const syncMatchStateFromHistory = (match) => {
+  const history = Array.isArray(match?.history) ? match.history : [];
+
+  match.totalRuns = history.reduce((total, entry) => total + getEventRuns(entry), 0);
+  match.balls = history.reduce((total, entry) => total + (isBallEvent(entry) ? 1 : 0), 0);
+  match.wickets = history.reduce((total, entry) => total + getEventWickets(entry), 0);
+};
 
 const isInningsClosed = (match) =>
   match.balls >= getBallsLimit(match.maxOvers) || match.wickets >= MAX_WICKETS;
@@ -82,9 +122,12 @@ export const checkMatchResult = (match) => {
     return { type: 'scoreUpdate' };
   }
 
+  const teamAName = match.teamAName || 'Team 1';
+  const teamBName = match.teamBName || 'Team 2';
+
   if (match.totalRuns >= match.target) {
     match.isCompleted = true;
-    match.result = 'Team 2 won';
+    match.result = `${teamBName} won`;
     return { type: 'matchEnd' };
   }
 
@@ -96,7 +139,7 @@ export const checkMatchResult = (match) => {
 
   if (isInningsClosed(match)) {
     match.isCompleted = true;
-    match.result = 'Team 1 won';
+    match.result = `${teamAName} won`;
     return { type: 'matchEnd' };
   }
 
@@ -122,9 +165,15 @@ export const addRun = (match, runs) => {
 
   assertCanScore(match);
 
-  match.totalRuns += parsedRuns;
-  match.balls += 1;
-  match.history.push(createHistoryEntry('run', parsedRuns));
+  match.history.push(
+    createHistoryEntry({
+      type: 'run',
+      value: parsedRuns,
+      runs: parsedRuns,
+      isBall: true,
+    })
+  );
+  syncMatchStateFromHistory(match);
 
   return applyBallOutcome(match);
 };
@@ -132,9 +181,31 @@ export const addRun = (match, runs) => {
 export const addWicket = (match) => {
   assertCanScore(match);
 
-  match.wickets += 1;
-  match.balls += 1;
-  match.history.push(createHistoryEntry('wicket', 1));
+  match.history.push(
+    createHistoryEntry({
+      type: 'wicket',
+      value: 1,
+      runs: 0,
+      isBall: true,
+    })
+  );
+  syncMatchStateFromHistory(match);
+
+  return applyBallOutcome(match);
+};
+
+export const addWide = (match) => {
+  assertCanScore(match);
+
+  match.history.push(
+    createHistoryEntry({
+      type: 'WD',
+      value: 1,
+      runs: 1,
+      isBall: false,
+    })
+  );
+  syncMatchStateFromHistory(match);
 
   return applyBallOutcome(match);
 };
@@ -149,14 +220,7 @@ export const undoLastAction = (match) => {
   if (!lastAction) {
     return null;
   }
-
-  if (lastAction.type === 'run') {
-    match.totalRuns = Math.max(0, match.totalRuns - lastAction.value);
-    match.balls = Math.max(0, match.balls - 1);
-  } else if (lastAction.type === 'wicket') {
-    match.wickets = Math.max(0, match.wickets - lastAction.value);
-    match.balls = Math.max(0, match.balls - 1);
-  }
+  syncMatchStateFromHistory(match);
 
   resetCompletedState(match);
 

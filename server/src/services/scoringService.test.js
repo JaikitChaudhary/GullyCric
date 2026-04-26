@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addRun,
+  addWide,
   addWicket,
   checkInningsTransition,
   checkMatchResult,
@@ -12,6 +13,8 @@ import {
 } from './scoringService.js';
 
 const createMatch = (overrides = {}) => ({
+  teamAName: 'Team A',
+  teamBName: 'Team B',
   name: 'Test Match',
   totalRuns: 0,
   wickets: 0,
@@ -27,6 +30,9 @@ const createMatch = (overrides = {}) => ({
   ...overrides,
 });
 
+const createRunHistory = (runsList) =>
+  runsList.map((runs) => ({ type: 'run', value: runs, runs, isBall: true }));
+
 test('add runs updates score and history', () => {
   const match = createMatch();
 
@@ -35,7 +41,7 @@ test('add runs updates score and history', () => {
   assert.equal(event.type, 'scoreUpdate');
   assert.equal(match.totalRuns, 4);
   assert.equal(match.balls, 1);
-  assert.deepEqual(match.history[0], { type: 'run', value: 4 });
+  assert.deepEqual(match.history[0], { type: 'run', value: 4, runs: 4, isBall: true });
 });
 
 test('add wicket updates wickets and history', () => {
@@ -46,7 +52,19 @@ test('add wicket updates wickets and history', () => {
   assert.equal(event.type, 'scoreUpdate');
   assert.equal(match.wickets, 1);
   assert.equal(match.balls, 1);
-  assert.deepEqual(match.history[0], { type: 'wicket', value: 1 });
+  assert.deepEqual(match.history[0], { type: 'wicket', value: 1, runs: 0, isBall: true });
+});
+
+test('add wide updates score without consuming a ball', () => {
+  const match = createMatch();
+
+  const event = addWide(match);
+
+  assert.equal(event.type, 'scoreUpdate');
+  assert.equal(match.totalRuns, 1);
+  assert.equal(match.balls, 0);
+  assert.equal(match.wickets, 0);
+  assert.deepEqual(match.history[0], { type: 'WD', value: 1, runs: 1, isBall: false });
 });
 
 test('undo reverses a run', () => {
@@ -72,6 +90,30 @@ test('undo reverses a wicket', () => {
   assert.equal(match.balls, 0);
 });
 
+test('undo reverses a wide without decrementing a ball', () => {
+  const match = createMatch();
+
+  addWide(match);
+  const result = undoLastAction(match);
+
+  assert.equal(result.lastAction.type, 'WD');
+  assert.equal(match.totalRuns, 0);
+  assert.equal(match.balls, 0);
+});
+
+test('wide is stored as a new event and does not overwrite the last run', () => {
+  const match = createMatch();
+
+  addRun(match, 4);
+  addWide(match);
+
+  assert.equal(match.history.length, 2);
+  assert.deepEqual(match.history[0], { type: 'run', value: 4, runs: 4, isBall: true });
+  assert.deepEqual(match.history[1], { type: 'WD', value: 1, runs: 1, isBall: false });
+  assert.equal(match.totalRuns, 5);
+  assert.equal(match.balls, 1);
+});
+
 test('overs increment after 6 legal balls', () => {
   const match = createMatch();
 
@@ -84,7 +126,8 @@ test('overs increment after 6 legal balls', () => {
 });
 
 test('first innings switches properly at the over limit', () => {
-  const match = createMatch({ maxOvers: 1, balls: 6, totalRuns: 12, history: [{ type: 'run', value: 4 }] });
+  const inningsHistory = createRunHistory([2, 2, 2, 2, 2, 2]);
+  const match = createMatch({ maxOvers: 1, balls: 6, totalRuns: 12, history: inningsHistory });
 
   const event = checkInningsTransition(match);
 
@@ -120,21 +163,23 @@ test('second innings ends correctly when target is chased', () => {
 
   assert.equal(event.type, 'matchEnd');
   assert.equal(match.isCompleted, true);
-  assert.equal(match.result, 'Team 2 won');
+  assert.equal(match.result, 'Team B won');
 });
 
 test('second innings ends correctly when overs finish', () => {
-  const match = createMatch({ innings: 2, target: 10, maxOvers: 1, totalRuns: 7, balls: 5, history: [{ type: 'run', value: 4 }] });
+  const history = createRunHistory([4, 1, 1, 1, 0]);
+  const match = createMatch({ innings: 2, target: 10, maxOvers: 1, totalRuns: 7, balls: 5, history });
 
   const event = addRun(match, 1);
 
   assert.equal(event.type, 'matchEnd');
   assert.equal(match.isCompleted, true);
-  assert.equal(match.result, 'Team 1 won');
+  assert.equal(match.result, 'Team A won');
 });
 
 test('second innings is a draw when scores are level at the ball limit', () => {
-  const match = createMatch({ innings: 2, target: 10, maxOvers: 1, totalRuns: 8, balls: 5, history: [{ type: 'run', value: 2 }] });
+  const history = createRunHistory([2, 2, 2, 1, 1]);
+  const match = createMatch({ innings: 2, target: 10, maxOvers: 1, totalRuns: 8, balls: 5, history });
 
   const event = addRun(match, 1);
 
@@ -164,7 +209,7 @@ test('checkMatchResult can complete a second innings directly', () => {
   const event = checkMatchResult(match);
 
   assert.equal(event.type, 'matchEnd');
-  assert.equal(match.result, 'Team 2 won');
+  assert.equal(match.result, 'Team B won');
 });
 
 test('serializeMatch preserves plain objects and mongoose-like docs', () => {

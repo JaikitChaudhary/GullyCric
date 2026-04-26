@@ -1,19 +1,102 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import ScoreBoard from '../components/ScoreBoard.jsx';
-import Controls from '../components/Controls.jsx';
+import ActionBar from '../components/ActionBar.jsx';
 import useSocket from '../hooks/useSocket.js';
 import InstallPrompt from '../components/InstallPrompt.jsx';
 import OfflineNotice from '../components/OfflineNotice.jsx';
 import Footer from '../components/Footer.jsx';
 import useInstallPrompt from '../hooks/useInstallPrompt.js';
 import useOnlineStatus from '../hooks/useOnlineStatus.js';
+import StickyScoreBar from '../components/StickyScoreBar.jsx';
+import BrandLogo from '../components/BrandLogo.jsx';
+import BallHistory from '../components/BallHistory.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const getOwnerTokenStorageKey = (matchCode) => `gullycric:ownerToken:${matchCode}`;
 
+function getMatchStatus(match) {
+  if (!match) {
+    return 'Match loading';
+  }
+
+  if (match.result) {
+    return match.result;
+  }
+
+  if (match.innings === 2 && match.target) {
+    const runsNeeded = Math.max(match.target - match.totalRuns, 0);
+    const ballsLeft = Math.max((match.ballsLimit || 0) - (match.balls || 0), 0);
+    const battingTeam = match.teamBName || 'Batting side';
+
+    return runsNeeded === 0
+      ? 'Target reached'
+      : `${battingTeam} need ${runsNeeded} run${runsNeeded === 1 ? '' : 's'} in ${ballsLeft} ball${ballsLeft === 1 ? '' : 's'}`;
+  }
+
+  return `${match.teamAName || match.name || 'Live match'} in progress`;
+}
+
+function getTeamsByInnings(match) {
+  const teamAName = match?.teamAName || 'Team A';
+  const teamBName = match?.teamBName || 'Team B';
+
+  if (match?.innings === 2) {
+    return {
+      battingTeam: teamBName,
+      bowlingTeam: teamAName,
+    };
+  }
+
+  return {
+    battingTeam: teamAName,
+    bowlingTeam: teamBName,
+  };
+}
+
+function getCurrentOverBalls(match) {
+  const history = Array.isArray(match?.history) ? match.history : [];
+
+  if (history.length === 0) {
+    return [];
+  }
+
+  let legalBallsInCurrentOver = 0;
+  let currentOverEvents = [];
+
+  history.forEach((entry) => {
+    const isBall = typeof entry?.isBall === 'boolean'
+      ? entry.isBall
+      : entry?.type === 'run' || entry?.type === 'wicket';
+
+    if (legalBallsInCurrentOver === 6) {
+      currentOverEvents = [];
+      legalBallsInCurrentOver = 0;
+    }
+
+    currentOverEvents.push(entry);
+
+    if (isBall) {
+      legalBallsInCurrentOver += 1;
+    }
+  });
+
+  return currentOverEvents.map((entry) => {
+    if (entry?.type === 'wicket') {
+      return 'W';
+    }
+
+    if (entry?.type === 'wide' || entry?.type === 'WD') {
+      return 'WD';
+    }
+
+    return String(entry?.runs ?? entry?.value ?? 0);
+  });
+}
+
 function Match() {
   const { code: matchCode } = useParams();
+  const navigate = useNavigate();
   const { canInstall, promptInstall } = useInstallPrompt();
   const isOnline = useOnlineStatus();
   const [match, setMatch] = useState(null);
@@ -24,6 +107,17 @@ function Match() {
   const isMatchOver = match?.isCompleted === true;
   const isOwner = ownerToken.length > 0;
   const shareLink = matchCode ? `${window.location.origin}/match/${matchCode}` : '';
+  const teams = match ? getTeamsByInnings(match) : null;
+  const stickyBarData = match
+    ? {
+        teamA: teams?.battingTeam,
+        teamB: teams?.bowlingTeam,
+        score: `${match.totalRuns}/${match.wickets}`,
+        overs: match.currentOver,
+        status: getMatchStatus(match),
+        overBalls: getCurrentOverBalls(match),
+      }
+    : null;
 
   useSocket({ matchCode, setMatch, setNotifications });
 
@@ -98,24 +192,38 @@ function Match() {
   };
 
   const handleWicket = async () => {
-    console.log('WICKET CLICK');
     await handleScoreAction('wicket');
   };
 
+  const handleWide = async () => {
+    await handleScoreAction('wide');
+  };
+
   const handleUndo = async () => {
-    console.log('UNDO CLICK');
     await handleScoreAction('undo');
   };
 
   return (
-    <div className="min-h-screen px-4 py-5 text-slate-100 sm:px-5 sm:py-6">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center">
+    <div className="min-h-screen px-4 pb-5 pt-14 text-slate-100 sm:px-5 sm:pb-6 sm:pt-[4.25rem]">
+      {stickyBarData && (
+        <StickyScoreBar
+          {...stickyBarData}
+          isLive={!isMatchOver}
+          onClick={() => navigate(`/match/${matchCode}`)}
+        />
+      )}
+      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center mt-10">
         <div className="w-full rounded-[2rem] border border-orange-300/10 bg-slate-900/70 p-4 shadow-[0_35px_120px_rgba(2,6,23,0.65)] backdrop-blur-2xl sm:p-6 md:p-8">
-          <header className="sticky top-4 z-10 mb-6 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/55 px-5 py-5 shadow-[0_12px_40px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+          <header className="mb-6 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/55 px-5 py-5 shadow-[0_12px_40px_rgba(2,6,23,0.35)] backdrop-blur-xl">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div>
+                <BrandLogo
+                  alt="GullyCric logo"
+                  priority
+                  heightClassName="h-10 sm:h-11"
+                  className="drop-shadow-[0_0_22px_rgba(249,115,22,0.18)]"
+                />
                 <p className="text-xs uppercase tracking-[0.36em] text-orange-200/65">Live Match Room</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">GullyCric</h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
                   Share this match link and keep scoring live from anywhere.
                 </p>
@@ -171,11 +279,12 @@ function Match() {
               <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
                 <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
                   <ScoreBoard match={match} />
-                  <Controls
+                  <ActionBar
                     disabled={isMatchOver}
                     isOwner={isOwner}
                     loadingAction={loadingAction}
                     onRun={handleRun}
+                    onWide={handleWide}
                     onUndo={handleUndo}
                     onWicket={handleWicket}
                   />
@@ -197,6 +306,10 @@ function Match() {
                 <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
                   <h3 className="text-xl font-semibold text-white">Match details</h3>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Teams</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{match.teamAName} vs {match.teamBName}</p>
+                    </div>
                     <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
                       <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Overs</p>
                       <p className="mt-2 text-lg font-semibold text-white">{match.currentOver}</p>
@@ -226,6 +339,10 @@ function Match() {
                     <p className="mt-2 text-slate-200">{new Date(match.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
+              </section>
+
+              <section className="mt-6">
+                <BallHistory history={match.history} />
               </section>
 
               {notifications.length > 0 && (

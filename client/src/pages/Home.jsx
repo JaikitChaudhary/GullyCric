@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import InstallPrompt from '../components/InstallPrompt.jsx';
 import OfflineNotice from '../components/OfflineNotice.jsx';
 import Card from '../components/Card.jsx';
-import Button from '../components/Button.jsx';
 import Footer from '../components/Footer.jsx';
+import BrandLogo from '../components/BrandLogo.jsx';
+import MatchSetup from '../components/MatchSetup.jsx';
 import useInstallPrompt from '../hooks/useInstallPrompt.js';
 import useOnlineStatus from '../hooks/useOnlineStatus.js';
 
@@ -16,7 +17,8 @@ function Home() {
   const { canInstall, promptInstall } = useInstallPrompt();
   const isOnline = useOnlineStatus();
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
+  const [teamAName, setTeamAName] = useState('');
+  const [teamBName, setTeamBName] = useState('');
   const [overs, setOvers] = useState(20);
   const [error, setError] = useState('');
 
@@ -24,16 +26,23 @@ function Home() {
     event.preventDefault();
     setError('');
 
-    if (!name.trim() || overs <= 0) {
-      setError('Please enter a match name and valid overs.');
+    if (!teamAName.trim() || !teamBName.trim() || overs <= 0) {
+      setError('Please enter both team names and valid overs.');
       return;
     }
 
     try {
+      const normalizedTeamAName = teamAName.trim();
+      const normalizedTeamBName = teamBName.trim();
       const response = await fetch(`${API_BASE}/match`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), overs }),
+        body: JSON.stringify({
+          name: `${normalizedTeamAName} vs ${normalizedTeamBName}`,
+          teamAName: normalizedTeamAName,
+          teamBName: normalizedTeamBName,
+          overs,
+        }),
       });
       const data = await response.json();
 
@@ -56,8 +65,13 @@ function Home() {
           <header className="sticky top-4 z-10 mb-8 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/50 px-5 py-5 backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
+                <BrandLogo
+                  alt="GullyCric logo"
+                  priority
+                  heightClassName="h-10 sm:h-11"
+                  className="drop-shadow-[0_0_22px_rgba(249,115,22,0.18)]"
+                />
                 <p className="text-sm uppercase tracking-[0.28em] text-orange-200/75">Real-time Gully Cricket</p>
-                <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">GullyCric</h1>
                 <p className="mt-2 max-w-2xl text-slate-300">Create a match, share the clean live link, and keep the score moving with a fast mobile-friendly scorer.</p>
               </div>
               <InstallPrompt canInstall={canInstall} onInstall={promptInstall} />
@@ -71,35 +85,26 @@ function Home() {
           )}
 
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <Button onClick={() => setShowForm((value) => !value)}>
-              {showForm ? 'Hide Create Match' : 'Create Match'}
-            </Button>
+            <button
+              type="button"
+              onClick={() => setShowForm((value) => !value)}
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95"
+            >
+              {showForm ? 'Hide Match Setup' : 'Create Match'}
+            </button>
           </div>
 
           {showForm ? (
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/75 p-6 animate-rise-in">
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Match Name</label>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-900/90 px-4 py-3 text-slate-100 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-                  placeholder="Enter match name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Overs</label>
-                <input
-                  type="number"
-                  value={overs}
-                  min="1"
-                  onChange={(event) => setOvers(Number(event.target.value))}
-                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-900/90 px-4 py-3 text-slate-100 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-                />
-              </div>
-              {error && <p className="text-sm text-rose-400">{error}</p>}
-              <Button type="submit">Save Match</Button>
-            </form>
+            <MatchSetup
+              teamAName={teamAName}
+              teamBName={teamBName}
+              overs={overs}
+              error={error}
+              onTeamANameChange={setTeamAName}
+              onTeamBNameChange={setTeamBName}
+              onOversChange={setOvers}
+              onSubmit={handleSubmit}
+            />
           ) : (
             <section className="mt-8 grid gap-4 md:grid-cols-3">
               <Card>

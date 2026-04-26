@@ -32,7 +32,7 @@ function ScoreBoard({ match }) {
             {scoreText}
           </h2>
           <p className="mt-3 text-sm text-slate-400 sm:text-base">
-            {match.name}
+            {match.teamAName && match.teamBName ? `${match.teamAName} vs ${match.teamBName}` : match.name}
             {match.result ? ` • ${match.result}` : ''}
           </p>
         </div>

@@ -28,7 +28,7 @@ export const useSocket = ({ matchCode, setMatch, setNotifications }) => {
     socket.on('inningsChange', (updatedMatch) => {
       setMatch(updatedMatch);
       setNotifications((prev) => [
-        `Innings break: Team 1 scored ${updatedMatch.firstInningsScore}. Target is ${updatedMatch.target}.`,
+        `Innings break: ${updatedMatch.teamAName || 'Team 1'} scored ${updatedMatch.firstInningsScore}. Target is ${updatedMatch.target}.`,
         ...prev,
       ]);
     });
