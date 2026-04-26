@@ -15,16 +15,22 @@ const start = async () => {
   await connectDB();
 
   await app.register(cors, {
-    origin: process.env.CLIENT_URL || '*',
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
+
+  app.get('/ping', async () => ({
+    status: 'ok',
+    message: 'GullyCric server is alive',
+    timestamp: new Date().toISOString(),
+  }));
 
   await app.register(matchRoutes, { prefix: '/match' });
   await app.register(matchRoutes, { prefix: '/api/match' });
 
   const io = new Server(app.server, {
     cors: {
-      origin: process.env.CLIENT_URL || '*',
+      origin: '*',
       methods: ['GET', 'POST'],
     },
   });
@@ -37,6 +43,20 @@ const start = async () => {
   try {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Server listening on http://localhost:${PORT}`);
+
+    const keepAliveUrl = process.env.PING_URL || `http://localhost:${PORT}/ping`;
+    const keepAliveIntervalMs = 5 * 60 * 1000;
+
+    app.log.info(`Keep-alive ping configured for: ${keepAliveUrl}`);
+
+    setInterval(async () => {
+      try {
+        await fetch(keepAliveUrl);
+        app.log.info('Keep-alive ping sent');
+      } catch (error) {
+        app.log.warn('Keep-alive ping failed:', error.message);
+      }
+    }, keepAliveIntervalMs);
   } catch (error) {
     app.log.error(error);
     process.exit(1);
