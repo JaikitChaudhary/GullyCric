@@ -11,6 +11,7 @@ import useOnlineStatus from '../hooks/useOnlineStatus.js';
 import StickyScoreBar from '../components/StickyScoreBar.jsx';
 import BrandLogo from '../components/BrandLogo.jsx';
 import BallHistory from '../components/BallHistory.jsx';
+import ScoringEventOverlay from '../components/ScoringEventOverlay.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const getOwnerTokenStorageKey = (matchCode) => `gullycric:ownerToken:${matchCode}`;
@@ -105,6 +106,8 @@ function Match() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [ownerToken, setOwnerToken] = useState('');
   const [copyFeedback, setCopyFeedback] = useState('');
+  const [scoringEvent, setScoringEvent] = useState(null);
+  const [scoringEventKey, setScoringEventKey] = useState(0);
   const copyFeedbackTimerRef = useRef(null);
   const isMatchOver = match?.isCompleted === true;
   const isOwner = ownerToken.length > 0;
@@ -277,11 +280,19 @@ function Match() {
     }
   };
 
+  const triggerScoringEvent = (event) => {
+    setScoringEvent(event);
+    setScoringEventKey((prev) => prev + 1);
+  };
+
   const handleRun = async (runs) => {
+    if (runs === 4) triggerScoringEvent('FOUR');
+    else if (runs === 6) triggerScoringEvent('SIX');
     await handleScoreAction('run', runs);
   };
 
   const handleWicket = async () => {
+    triggerScoringEvent('WICKET');
     await handleScoreAction('wicket');
   };
 
@@ -295,6 +306,7 @@ function Match() {
 
   return (
     <div className="min-h-screen px-4 pb-5 pt-14 text-slate-100 sm:px-5 sm:pb-6 sm:pt-[4.25rem]">
+      <ScoringEventOverlay eventType={scoringEvent} triggerKey={scoringEventKey} />
       {stickyBarData && (
         <StickyScoreBar
           {...stickyBarData}
@@ -318,13 +330,26 @@ function Match() {
                   Share this match link and keep scoring live from anywhere.
                 </p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
                 <InstallPrompt canInstall={canInstall} onInstall={promptInstall} />
                 <Link
                   to="/"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-3 py-2 text-xs font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95 sm:px-5 sm:py-3 sm:text-sm"
                 >
-                  New Match
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>New Match</span>
                 </Link>
               </div>
             </div>
@@ -376,11 +401,11 @@ function Match() {
                   <div className="mt-5 rounded-[1.5rem] border border-orange-300/10 bg-slate-900/70 px-4 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Share Live Score</p>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="flex flex-row gap-2 sm:gap-3 sm:items-center">
                         <button
                           type="button"
                           onClick={handleShareOnWhatsApp}
-                          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(34,197,94,0.22)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(34,197,94,0.3)] active:scale-95"
+                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 px-3 py-2 text-xs font-semibold text-slate-950 shadow-[0_18px_40px_rgba(34,197,94,0.22)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(34,197,94,0.3)] active:scale-95 sm:px-5 sm:py-3 sm:text-sm"
                         >
                           <svg
                             aria-hidden="true"
@@ -397,12 +422,12 @@ function Match() {
                             <path d="m9.4 8.5.7-1.1" />
                             <path d="m14.5 14.5 1.2-.7" />
                           </svg>
-                          Share
+                          <span>Share</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleCopyLink}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-all duration-200 hover:scale-105 hover:bg-white/[0.08] active:scale-95"
+                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-100 transition-all duration-200 hover:scale-105 hover:bg-white/[0.08] active:scale-95 sm:px-4 sm:py-3 sm:text-sm"
                         >
                           <svg
                             aria-hidden="true"
@@ -417,10 +442,10 @@ function Match() {
                             <rect x="8" y="8" width="12" height="12" rx="2" />
                             <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
                           </svg>
-                          Copy
+                          <span>Copy</span>
                         </button>
                         {copyFeedback && (
-                          <span className="text-sm font-medium text-emerald-200" role="status">
+                          <span className="text-xs sm:text-sm font-medium text-emerald-200 whitespace-nowrap" role="status">
                             {copyFeedback}
                           </span>
                         )}

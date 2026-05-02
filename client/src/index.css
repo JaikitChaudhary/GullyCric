@@ -73,6 +73,25 @@ body::after {
   }
 }
 
+@keyframes score-event {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 @layer utilities {
   .animate-score-pop {
     animation: score-pop 450ms ease-out;
@@ -80,5 +99,9 @@ body::after {
 
   .animate-rise-in {
     animation: rise-in 500ms ease-out;
+  }
+
+  .animate-score-event {
+    animation: score-event 900ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 }

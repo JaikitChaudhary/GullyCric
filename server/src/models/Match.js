@@ -150,6 +150,11 @@ const matchSchema = new mongoose.Schema(
       type: [historySchema],
       default: [],
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: { createdAt: 'createdAt', updatedAt: false },

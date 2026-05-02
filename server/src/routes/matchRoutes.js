@@ -1,4 +1,4 @@
-import { createMatch, getMatch, addRun, addWide, addWicket, undoAction } from '../controllers/matchController.js';
+import { createMatch, getMatch, addRun, addWide, addWicket, undoAction, deleteMatch } from '../controllers/matchController.js';
 
 const matchRoutes = async (fastify) => {
   fastify.post('/', createMatch);
@@ -7,6 +7,7 @@ const matchRoutes = async (fastify) => {
   fastify.post('/:code/wide', addWide);
   fastify.post('/:code/wicket', addWicket);
   fastify.post('/:code/undo', undoAction);
+  fastify.delete('/:code', deleteMatch);
 };
 
 export default matchRoutes;

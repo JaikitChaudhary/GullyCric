@@ -117,7 +117,7 @@ export const listMatches = async (request, reply) => {
       return reply.status(400).send({ error: 'deviceId is required' });
     }
 
-    const matches = await Match.find({ deviceId })
+    const matches = await Match.find({ deviceId, isDeleted: false })
       .sort({ createdAt: -1 })
       .limit(20);
 
@@ -125,6 +125,31 @@ export const listMatches = async (request, reply) => {
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Failed to fetch matches' });
+  }
+};
+
+export const deleteMatch = async (request, reply) => {
+  try {
+    const { code } = request.params;
+    const deviceId = request.query.deviceId?.trim();
+
+    if (!deviceId) {
+      return reply.status(400).send({ error: 'deviceId is required' });
+    }
+
+    const match = await Match.findOne({ matchCode: code, deviceId, isDeleted: false });
+
+    if (!match) {
+      return reply.status(404).send({ error: 'Match not found' });
+    }
+
+    match.isDeleted = true;
+    await match.save();
+
+    return reply.send({ success: true });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ error: 'Failed to delete match' });
   }
 };
 
