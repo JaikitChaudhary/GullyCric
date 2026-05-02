@@ -127,6 +127,11 @@ const matchSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    undoCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     result: {
       type: String,
       default: '',

@@ -101,6 +101,40 @@ test('undo reverses a wide without decrementing a ball', () => {
   assert.equal(match.balls, 0);
 });
 
+test('undo is limited to two consecutive actions', () => {
+  const match = createMatch();
+
+  addRun(match, 1);
+  addRun(match, 2);
+  addRun(match, 4);
+
+  undoLastAction(match);
+  undoLastAction(match);
+
+  assert.equal(match.totalRuns, 1);
+  assert.equal(match.balls, 1);
+  assert.equal(match.undoCount, 2);
+  assert.throws(() => undoLastAction(match), /Only the last 2 balls can be undone/);
+});
+
+test('new scoring action resets undo count', () => {
+  const match = createMatch();
+
+  addRun(match, 1);
+  addRun(match, 2);
+  undoLastAction(match);
+  undoLastAction(match);
+
+  addWicket(match);
+
+  assert.equal(match.undoCount, 0);
+  assert.equal(match.wickets, 1);
+  const result = undoLastAction(match);
+  assert.equal(result.lastAction.type, 'wicket');
+  assert.equal(match.wickets, 0);
+  assert.equal(match.undoCount, 1);
+});
+
 test('wide is stored as a new event and does not overwrite the last run', () => {
   const match = createMatch();
 

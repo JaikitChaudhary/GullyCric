@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ScoreBoard from '../components/ScoreBoard.jsx';
 import ActionBar from '../components/ActionBar.jsx';
@@ -104,8 +104,20 @@ function Match() {
   const [notifications, setNotifications] = useState([]);
   const [loadingAction, setLoadingAction] = useState(false);
   const [ownerToken, setOwnerToken] = useState('');
+  const [copyFeedback, setCopyFeedback] = useState('');
+  const copyFeedbackTimerRef = useRef(null);
   const isMatchOver = match?.isCompleted === true;
   const isOwner = ownerToken.length > 0;
+  const [localUndoCount, setLocalUndoCount] = useState(0);
+  const serverUndoCount = Number(match?.undoCount) || 0;
+  const undoCount = Math.max(serverUndoCount, localUndoCount);
+  const hasUndoableAction = Boolean(
+    match && (
+      (Array.isArray(match.history) && match.history.length > 0) ||
+      (match.innings === 2 && match.previousInningsState)
+    )
+  );
+  const isUndoDisabled = undoCount >= 2 || !hasUndoableAction;
   const shareLink = matchCode ? `${window.location.origin}/match/${matchCode}` : '';
   const teams = match ? getTeamsByInnings(match) : null;
   const stickyBarData = match
@@ -156,8 +168,80 @@ function Match() {
     loadMatch();
   }, [matchCode]);
 
+  useEffect(() => () => {
+    if (copyFeedbackTimerRef.current) {
+      window.clearTimeout(copyFeedbackTimerRef.current);
+    }
+  }, []);
+
+  const showCopyFeedback = (message) => {
+    setCopyFeedback(message);
+
+    if (copyFeedbackTimerRef.current) {
+      window.clearTimeout(copyFeedbackTimerRef.current);
+    }
+
+    copyFeedbackTimerRef.current = window.setTimeout(() => {
+      setCopyFeedback('');
+      copyFeedbackTimerRef.current = null;
+    }, 2200);
+  };
+
+  const handleShareOnWhatsApp = () => {
+    if (!match || !shareLink) {
+      return;
+    }
+
+    const teamAName = match.teamAName || 'Team A';
+    const teamBName = match.teamBName || 'Team B';
+    const score = `${match.totalRuns}/${match.wickets}`;
+    const overs = match.currentOver || '0.0';
+    const message = [
+      '🏏 Live Gully Cricket Score',
+      '',
+      `${teamAName} vs ${teamBName}`,
+      `Score: ${score} (${overs})`,
+      '',
+      'Watch live here 👇',
+      shareLink,
+    ].join('\n');
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareLink) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareLink);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareLink;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      showCopyFeedback('Link copied');
+    } catch (err) {
+      showCopyFeedback('Unable to copy link');
+    }
+  };
+
   const handleScoreAction = async (action, runs = 0) => {
     if (!matchCode) return;
+    if (action === 'undo' && isUndoDisabled) {
+      setError('Only the last 2 balls can be undone');
+      return;
+    }
+
     setError('');
     setLoadingAction(true);
 
@@ -180,6 +264,12 @@ function Match() {
         return;
       }
       setMatch(data);
+      if (action === 'undo') {
+        const nextUndoCount = Number(data?.undoCount) || Math.min(localUndoCount + 1, 2);
+        setLocalUndoCount(nextUndoCount);
+      } else {
+        setLocalUndoCount(0);
+      }
     } catch (err) {
       setError('Server error while updating score.');
     } finally {
@@ -263,18 +353,12 @@ function Match() {
 
           {match && (
             <>
-              <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto]">
-                <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/65 p-5 text-slate-300 shadow-[0_20px_55px_rgba(2,6,23,0.35)] backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Share Link</p>
-                  <p className="mt-2 break-all font-medium text-slate-100">{shareLink}</p>
+              {!isOwner && (
+                <div className="mb-6 rounded-[1.75rem] border border-orange-300/20 bg-orange-400/10 p-5 text-orange-100 shadow-[0_20px_55px_rgba(249,115,22,0.08)] backdrop-blur">
+                  <p className="text-xs uppercase tracking-[0.28em] text-orange-200/80">Viewer Access</p>
+                  <p className="mt-2 font-semibold">View Only Mode</p>
                 </div>
-                {!isOwner && (
-                  <div className="rounded-[1.75rem] border border-orange-300/20 bg-orange-400/10 p-5 text-orange-100 shadow-[0_20px_55px_rgba(249,115,22,0.08)] backdrop-blur">
-                    <p className="text-xs uppercase tracking-[0.28em] text-orange-200/80">Viewer Access</p>
-                    <p className="mt-2 font-semibold">View Only Mode</p>
-                  </div>
-                )}
-              </div>
+              )}
 
               <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
                 <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
@@ -287,7 +371,62 @@ function Match() {
                     onWide={handleWide}
                     onUndo={handleUndo}
                     onWicket={handleWicket}
+                    undoDisabled={isUndoDisabled}
                   />
+                  <div className="mt-5 rounded-[1.5rem] border border-orange-300/10 bg-slate-900/70 px-4 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Share Live Score</p>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <button
+                          type="button"
+                          onClick={handleShareOnWhatsApp}
+                          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(34,197,94,0.22)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(34,197,94,0.3)] active:scale-95"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M21 11.5a8.4 8.4 0 0 1-12.5 7.3L3 20l1.4-5.2A8.4 8.4 0 1 1 21 11.5Z" />
+                            <path d="M9.5 8.5c.3 3 2 4.8 5 6" />
+                            <path d="m9.4 8.5.7-1.1" />
+                            <path d="m14.5 14.5 1.2-.7" />
+                          </svg>
+                          Share
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCopyLink}
+                          className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-all duration-200 hover:scale-105 hover:bg-white/[0.08] active:scale-95"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="8" y="8" width="12" height="12" rx="2" />
+                            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                          </svg>
+                          Copy
+                        </button>
+                        {copyFeedback && (
+                          <span className="text-sm font-medium text-emerald-200" role="status">
+                            {copyFeedback}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   {!isOwner && (
                     <p className="mt-4 rounded-[1.5rem] border border-orange-300/20 bg-orange-400/10 px-4 py-3 text-sm text-orange-100 shadow-[0_16px_40px_rgba(249,115,22,0.08)] animate-rise-in">

@@ -13,7 +13,7 @@ function ActionButton({ children, onClick, disabled, className = '' }) {
   );
 }
 
-function ActionBar({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, onWide }) {
+function ActionBar({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, onWide, undoDisabled }) {
   if (!isOwner) {
     return (
       <div className="rounded-[1.75rem] border border-orange-300/20 bg-orange-400/10 px-4 py-5 text-center text-sm font-semibold uppercase tracking-[0.22em] text-orange-100 shadow-[0_18px_50px_rgba(249,115,22,0.08)] backdrop-blur">
@@ -50,7 +50,7 @@ function ActionBar({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, 
           W
         </ActionButton>
         <ActionButton
-          disabled={loadingAction}
+          disabled={loadingAction || undoDisabled}
           onClick={onUndo}
           className="flex-1 basis-[calc(20%-0.5rem)] border border-slate-600/80 bg-slate-700/90 text-slate-100"
         >

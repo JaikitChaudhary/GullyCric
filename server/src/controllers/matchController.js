@@ -90,6 +90,7 @@ export const createMatch = async (request, reply) => {
       firstInningsScore: 0,
       target: 0,
       isCompleted: false,
+      undoCount: 0,
       result: '',
       history: [],
     });
@@ -231,9 +232,14 @@ export const undoAction = async (request, reply) => {
       return;
     }
 
-    const undoResult = undoLastAction(match);
-    if (!undoResult) {
-      return reply.status(400).send({ error: 'No actions to undo' });
+    let undoResult;
+    try {
+      undoResult = undoLastAction(match);
+      if (!undoResult) {
+        return reply.status(400).send({ error: 'No actions to undo' });
+      }
+    } catch (error) {
+      return reply.status(400).send({ error: error.message });
     }
 
     await match.save();

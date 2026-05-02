@@ -1,4 +1,5 @@
 export const MAX_WICKETS = 10;
+export const MAX_UNDOS_PER_SCORING_SEQUENCE = 2;
 
 export const getBallsLimit = (maxOvers) => Number(maxOvers) * 6;
 
@@ -71,6 +72,10 @@ const isBallLimitReached = (match) => match.balls >= getBallsLimit(match.maxOver
 const resetCompletedState = (match) => {
   match.isCompleted = false;
   match.result = '';
+};
+
+const resetUndoCount = (match) => {
+  match.undoCount = 0;
 };
 
 const restoreFirstInningsState = (match) => {
@@ -174,6 +179,7 @@ export const addRun = (match, runs) => {
     })
   );
   syncMatchStateFromHistory(match);
+  resetUndoCount(match);
 
   return applyBallOutcome(match);
 };
@@ -190,6 +196,7 @@ export const addWicket = (match) => {
     })
   );
   syncMatchStateFromHistory(match);
+  resetUndoCount(match);
 
   return applyBallOutcome(match);
 };
@@ -206,11 +213,18 @@ export const addWide = (match) => {
     })
   );
   syncMatchStateFromHistory(match);
+  resetUndoCount(match);
 
   return applyBallOutcome(match);
 };
 
 export const undoLastAction = (match) => {
+  const undoCount = Number(match.undoCount) || 0;
+
+  if (undoCount >= MAX_UNDOS_PER_SCORING_SEQUENCE) {
+    throw new Error('Only the last 2 balls can be undone');
+  }
+
   if (match.innings === 2 && match.history.length === 0 && match.previousInningsState) {
     restoreFirstInningsState(match);
   }
@@ -223,6 +237,7 @@ export const undoLastAction = (match) => {
   syncMatchStateFromHistory(match);
 
   resetCompletedState(match);
+  match.undoCount = undoCount + 1;
 
   return { type: 'scoreUpdate', lastAction };
 };
