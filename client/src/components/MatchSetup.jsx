@@ -7,6 +7,7 @@ function MatchSetup({
   onTeamBNameChange,
   onOversChange,
   onSubmit,
+  submitting = false,
 }) {
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/75 p-6 animate-rise-in">
@@ -43,9 +44,10 @@ function MatchSetup({
       {error && <p className="text-sm text-rose-400">{error}</p>}
       <button
         type="submit"
-        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95"
+        disabled={submitting}
+        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Start Match
+        {submitting ? 'Creating...' : 'Start Match'}
       </button>
     </form>
   );

@@ -88,6 +88,11 @@ const matchSchema = new mongoose.Schema(
       trim: true,
       select: false,
     },
+    deviceId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     maxOvers: {
       type: Number,
       required: true,

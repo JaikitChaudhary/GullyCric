@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
 import matchRoutes from './routes/matchRoutes.js';
+import { listMatches } from './controllers/matchController.js';
 import { registerMatchSocket } from './socket/matchSocket.js';
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -24,6 +25,9 @@ const start = async () => {
     message: 'GullyCric server is alive',
     timestamp: new Date().toISOString(),
   }));
+
+  app.get('/matches', listMatches);
+  app.get('/api/matches', listMatches);
 
   await app.register(matchRoutes, { prefix: '/match' });
   await app.register(matchRoutes, { prefix: '/api/match' });

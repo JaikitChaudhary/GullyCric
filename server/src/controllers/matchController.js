@@ -64,10 +64,11 @@ const emitScoringEvents = (request, match, scoringEvent) => {
 
 export const createMatch = async (request, reply) => {
   try {
-    const { name, teamAName, teamBName, overs } = request.body;
+    const { name, teamAName, teamBName, overs, deviceId } = request.body;
     const parsedOvers = Number(overs);
     const sanitizedTeamAName = teamAName?.trim();
     const sanitizedTeamBName = teamBName?.trim();
+    const sanitizedDeviceId = deviceId?.trim();
     const matchName = name?.trim() || `${sanitizedTeamAName} vs ${sanitizedTeamBName}`;
 
     if (!sanitizedTeamAName || !sanitizedTeamBName || !Number.isInteger(parsedOvers) || parsedOvers < 1) {
@@ -82,6 +83,7 @@ export const createMatch = async (request, reply) => {
       teamBName: sanitizedTeamBName,
       matchCode,
       ownerToken: crypto.randomBytes(24).toString('hex'),
+      ...(sanitizedDeviceId ? { deviceId: sanitizedDeviceId } : {}),
       maxOvers: parsedOvers,
       totalRuns: 0,
       wickets: 0,
@@ -104,6 +106,25 @@ export const createMatch = async (request, reply) => {
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Failed to create match' });
+  }
+};
+
+export const listMatches = async (request, reply) => {
+  try {
+    const deviceId = request.query.deviceId?.trim();
+
+    if (!deviceId) {
+      return reply.status(400).send({ error: 'deviceId is required' });
+    }
+
+    const matches = await Match.find({ deviceId })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    return reply.send(matches.map((match) => buildMatchResponse(match)));
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ error: 'Failed to fetch matches' });
   }
 };
 
