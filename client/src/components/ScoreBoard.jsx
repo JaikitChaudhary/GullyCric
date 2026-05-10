@@ -4,6 +4,9 @@ function ScoreBoard({ match }) {
   const scoreText = `${match.totalRuns}/${match.wickets}`;
   const [isScoreAnimated, setIsScoreAnimated] = useState(false);
   const statusText = match.isCompleted ? 'Completed' : 'In Progress';
+  const firstInningsBattingTeam = match.battingTeam || match.teamAName || 'Team A';
+  const firstInningsBowlingTeam = match.bowlingTeam || match.teamBName || 'Team B';
+  const currentBattingTeam = match.innings === 2 ? firstInningsBowlingTeam : firstInningsBattingTeam;
   const detailItems = [
     { label: 'Overs', value: match.currentOver },
     { label: 'Innings', value: match.innings },
@@ -20,28 +23,31 @@ function ScoreBoard({ match }) {
 
   return (
     <>
-      <div className="relative mb-6 overflow-hidden rounded-[2rem] border border-orange-400/15 bg-slate-950/70 p-6 text-slate-200 shadow-[0_28px_90px_rgba(2,6,23,0.6)] backdrop-blur-xl sm:p-8">
+      <div className="theme-surface relative mb-6 overflow-hidden rounded-[2rem] border p-6 backdrop-blur-xl sm:p-8">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-orange-500/12 to-transparent" />
         <div className="pointer-events-none absolute left-1/2 top-12 h-40 w-40 -translate-x-1/2 rounded-full bg-orange-500/10 blur-3xl" />
 
         <div className="relative text-center">
           <p className="text-xs uppercase tracking-[0.38em] text-orange-200/70">Live Score</p>
+          <p className="mt-3 text-sm font-semibold text-orange-100 sm:text-base">
+            {currentBattingTeam} batting
+          </p>
           <h2
-            className={`mt-4 text-5xl font-black tracking-tight text-white drop-shadow-[0_0_22px_rgba(249,115,22,0.2)] sm:text-6xl md:text-7xl ${isScoreAnimated ? 'animate-score-pop' : ''}`}
+            className={`mt-3 text-5xl font-black tracking-tight text-white drop-shadow-[0_0_22px_rgba(249,115,22,0.2)] sm:text-6xl md:text-7xl ${isScoreAnimated ? 'animate-score-pop' : ''}`}
           >
             {scoreText}
           </h2>
-          <p className="mt-3 text-sm text-slate-400 sm:text-base">
+          <p className="theme-muted mt-3 text-sm sm:text-base">
             {match.teamAName && match.teamBName ? `${match.teamAName} vs ${match.teamBName}` : match.name}
             {match.result ? ` • ${match.result}` : ''}
           </p>
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 text-center text-slate-300 sm:grid-cols-4">
+        <div className="theme-muted relative mt-8 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
           {detailItems.map((item) => (
             <div
               key={item.label}
-              className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur"
+              className="theme-card rounded-[1.5rem] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur"
             >
               <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">{item.label}</p>
               <p className="mt-2 text-base font-semibold text-white sm:text-lg">{item.value}</p>

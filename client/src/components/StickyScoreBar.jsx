@@ -107,7 +107,7 @@ function StickyScoreBar({
           }}
           role={onClick ? 'button' : undefined}
           tabIndex={onClick ? 0 : undefined}
-          className={`relative overflow-hidden border border-cyan-300/10 bg-gradient-to-r from-black/88 via-slate-950/84 to-[#061a38]/88 shadow-[0_18px_50px_rgba(2,6,23,0.55),0_0_0_1px_rgba(125,211,252,0.08),0_0_36px_rgba(56,189,248,0.12)] backdrop-blur-xl supports-[backdrop-filter]:bg-slate-950/68 ${onClick ? 'cursor-pointer' : ''} ${canExpand && isExpanded ? 'rounded-b-[1.35rem]' : 'rounded-b-2xl md:rounded-b-[1.35rem]'}`}
+          className={`theme-surface relative overflow-hidden border backdrop-blur-xl ${onClick ? 'cursor-pointer' : ''} ${canExpand && isExpanded ? 'rounded-b-[1.35rem]' : 'rounded-b-2xl md:rounded-b-[1.35rem]'}`}
         >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
           <div className="pointer-events-none absolute -right-10 top-0 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl" />

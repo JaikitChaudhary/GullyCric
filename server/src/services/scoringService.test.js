@@ -211,6 +211,26 @@ test('second innings ends correctly when overs finish', () => {
   assert.equal(match.result, 'Team A won');
 });
 
+test('match result follows toss batting order when Team B bats first', () => {
+  const history = createRunHistory([1, 1, 1, 1, 1]);
+  const match = createMatch({
+    innings: 2,
+    target: 10,
+    maxOvers: 1,
+    totalRuns: 5,
+    balls: 5,
+    history,
+    battingTeam: 'Team B',
+    bowlingTeam: 'Team A',
+  });
+
+  const event = addRun(match, 1);
+
+  assert.equal(event.type, 'matchEnd');
+  assert.equal(match.isCompleted, true);
+  assert.equal(match.result, 'Team B won');
+});
+
 test('second innings is a draw when scores are level at the ball limit', () => {
   const history = createRunHistory([2, 2, 2, 1, 1]);
   const match = createMatch({ innings: 2, target: 10, maxOvers: 1, totalRuns: 8, balls: 5, history });

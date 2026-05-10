@@ -6,6 +6,7 @@ import Card from '../components/Card.jsx';
 import Footer from '../components/Footer.jsx';
 import BrandLogo from '../components/BrandLogo.jsx';
 import MatchSetup from '../components/MatchSetup.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 import useInstallPrompt from '../hooks/useInstallPrompt.js';
 import useOnlineStatus from '../hooks/useOnlineStatus.js';
 
@@ -144,7 +145,7 @@ function Home() {
       // Save team names for future quick starts
       window.localStorage.setItem('gullycric:lastTeamA', normalizedTeamAName);
       window.localStorage.setItem('gullycric:lastTeamB', normalizedTeamBName);
-      navigate(`/match/${data.matchCode}`);
+      navigate(`/match/${data.matchCode}/toss`);
     } catch (err) {
       setError('Server error while creating match.');
     } finally {
@@ -200,10 +201,10 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen p-4 text-slate-100">
+    <div className="theme-text min-h-screen p-4">
       <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center">
-        <div className="w-full rounded-[2rem] border border-orange-300/10 bg-slate-950/75 p-6 shadow-[0_30px_120px_rgba(2,6,23,0.55)] backdrop-blur-xl md:p-8">
-          <header className="sticky top-4 z-10 mb-8 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/50 px-5 py-5 backdrop-blur">
+        <div className="theme-surface-strong w-full rounded-[2rem] border p-6 backdrop-blur-xl md:p-8">
+          <header className="theme-surface sticky top-4 z-10 mb-8 rounded-[1.75rem] border px-5 py-5 backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <BrandLogo
@@ -215,7 +216,10 @@ function Home() {
                 <p className="text-sm uppercase tracking-[0.28em] text-orange-200/75">Real-time Gully Cricket</p>
                 <p className="mt-2 max-w-2xl text-slate-300">Create a match, share the clean live link, and keep the score moving with a fast mobile-friendly scorer.</p>
               </div>
-              <InstallPrompt canInstall={canInstall} onInstall={promptInstall} />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <InstallPrompt canInstall={canInstall} onInstall={promptInstall} />
+              </div>
             </div>
           </header>
 
@@ -237,7 +241,7 @@ function Home() {
             <button
               type="button"
               onClick={() => setShowForm((value) => !value)}
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-slate-100 transition-all duration-200 hover:scale-105 hover:bg-white/[0.08] active:scale-95"
+              className="theme-secondary-button inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
             >
               {showForm ? 'Hide Match Setup' : 'Create Match'}
             </button>
@@ -276,12 +280,12 @@ function Home() {
                 <h2 className="mt-2 text-xl font-semibold text-white">Owner-Based Scoring</h2>
                 <p className="mt-3 text-sm leading-6">Only the creator can update the live score while everyone else stays in view-only mode.</p>
               </Card>
-              <div className="rounded-[1.75rem] border border-dashed border-orange-300/10 bg-slate-950/60 p-8 text-center text-slate-300 md:col-span-3">
+              <div className="theme-card rounded-[1.75rem] border border-dashed p-8 text-center md:col-span-3">
                 <p>Create a match to start scoring and get a shareable link.</p>
               </div>
             </section>
           )}
-          <section className="mt-8 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/60 p-5 shadow-[0_18px_50px_rgba(2,6,23,0.32)] relative">
+          <section className="theme-surface mt-8 rounded-[1.75rem] border p-5 relative">
             {deleteTarget && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 px-4 py-5 backdrop-blur-sm rounded-[1.75rem]">
                 <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-slate-900/95 p-6 text-left shadow-[0_30px_120px_rgba(0,0,0,0.4)]">

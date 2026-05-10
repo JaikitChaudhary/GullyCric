@@ -23,14 +23,14 @@ function ActionBar({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, 
   }
 
   return (
-    <div className="sticky bottom-3 z-20 -mx-1 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/88 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.55)] backdrop-blur-xl">
+    <div className="theme-surface sticky bottom-3 z-20 -mx-1 rounded-[1.75rem] border p-3 backdrop-blur-xl">
       <div className="flex flex-wrap gap-2">
         {scoringButtons.map((score) => (
           <ActionButton
             key={score}
             disabled={loadingAction || disabled}
             onClick={() => onRun(score)}
-            className="flex-1 basis-[calc(20%-0.5rem)] border border-orange-300/15 bg-slate-900/90 text-slate-100 hover:border-orange-300/40 hover:bg-slate-800"
+            className="theme-secondary-button flex-1 basis-[calc(20%-0.5rem)] border hover:border-orange-300/40"
           >
             {score}
           </ActionButton>
@@ -52,7 +52,7 @@ function ActionBar({ disabled, isOwner, loadingAction, onRun, onUndo, onWicket, 
         <ActionButton
           disabled={loadingAction || undoDisabled}
           onClick={onUndo}
-          className="flex-1 basis-[calc(20%-0.5rem)] border border-slate-600/80 bg-slate-700/90 text-slate-100"
+          className="theme-secondary-button flex-1 basis-[calc(20%-0.5rem)] border"
         >
           Undo
         </ActionButton>

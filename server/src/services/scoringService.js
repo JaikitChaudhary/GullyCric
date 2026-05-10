@@ -69,6 +69,10 @@ const isInningsClosed = (match) =>
 
 const isBallLimitReached = (match) => match.balls >= getBallsLimit(match.maxOvers);
 
+const getFirstInningsBattingTeam = (match) => match.battingTeam || match.teamAName || 'Team 1';
+
+const getSecondInningsBattingTeam = (match) => match.bowlingTeam || match.teamBName || 'Team 2';
+
 const resetCompletedState = (match) => {
   match.isCompleted = false;
   match.result = '';
@@ -127,12 +131,12 @@ export const checkMatchResult = (match) => {
     return { type: 'scoreUpdate' };
   }
 
-  const teamAName = match.teamAName || 'Team 1';
-  const teamBName = match.teamBName || 'Team 2';
+  const firstInningsBattingTeam = getFirstInningsBattingTeam(match);
+  const secondInningsBattingTeam = getSecondInningsBattingTeam(match);
 
   if (match.totalRuns >= match.target) {
     match.isCompleted = true;
-    match.result = `${teamBName} won`;
+    match.result = `${secondInningsBattingTeam} won`;
     return { type: 'matchEnd' };
   }
 
@@ -144,7 +148,7 @@ export const checkMatchResult = (match) => {
 
   if (isInningsClosed(match)) {
     match.isCompleted = true;
-    match.result = `${teamAName} won`;
+    match.result = `${firstInningsBattingTeam} won`;
     return { type: 'matchEnd' };
   }
 

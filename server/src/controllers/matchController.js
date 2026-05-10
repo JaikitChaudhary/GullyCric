@@ -48,6 +48,15 @@ const requireOwnerAccess = (request, reply, match) => {
   return true;
 };
 
+const getTeamNames = (match) => [match.teamAName || 'Team 1', match.teamBName || 'Team 2'];
+
+const isMatchStarted = (match) =>
+  match.totalRuns > 0 ||
+  match.wickets > 0 ||
+  match.balls > 0 ||
+  match.innings > 1 ||
+  (Array.isArray(match.history) && match.history.length > 0);
+
 const emitScoringEvents = (request, match, scoringEvent) => {
   const serializedMatch = buildMatchResponse(match);
 
@@ -94,6 +103,10 @@ export const createMatch = async (request, reply) => {
       isCompleted: false,
       undoCount: 0,
       result: '',
+      tossWinner: null,
+      decision: null,
+      battingTeam: null,
+      bowlingTeam: null,
       history: [],
     });
 
@@ -166,6 +179,60 @@ export const getMatch = async (request, reply) => {
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Failed to fetch match' });
+  }
+};
+
+export const setToss = async (request, reply) => {
+  try {
+    const { code } = request.params;
+    const { tossWinner, decision, skipToss } = request.body || {};
+    const match = await findMatchByCodeWithOwnerToken(code);
+
+    if (!match) {
+      return reply.status(404).send({ error: 'Match not found' });
+    }
+
+    if (!requireOwnerAccess(request, reply, match)) {
+      return;
+    }
+
+    if (isMatchStarted(match)) {
+      return reply.status(400).send({ error: 'Toss can only be set before scoring starts' });
+    }
+
+    const [teamAName, teamBName] = getTeamNames(match);
+
+    if (skipToss) {
+      match.tossWinner = null;
+      match.decision = null;
+      match.battingTeam = teamAName;
+      match.bowlingTeam = teamBName;
+    } else {
+      const normalizedTossWinner = tossWinner?.trim();
+      const normalizedDecision = decision?.trim().toLowerCase();
+
+      if (![teamAName, teamBName].includes(normalizedTossWinner)) {
+        return reply.status(400).send({ error: 'Toss winner must be one of the match teams' });
+      }
+
+      if (!['bat', 'bowl'].includes(normalizedDecision)) {
+        return reply.status(400).send({ error: 'Decision must be bat or bowl' });
+      }
+
+      const otherTeam = normalizedTossWinner === teamAName ? teamBName : teamAName;
+      match.tossWinner = normalizedTossWinner;
+      match.decision = normalizedDecision;
+      match.battingTeam = normalizedDecision === 'bat' ? normalizedTossWinner : otherTeam;
+      match.bowlingTeam = normalizedDecision === 'bat' ? otherTeam : normalizedTossWinner;
+    }
+
+    await match.save();
+    emitMatchEvent(request, 'scoreUpdate', buildMatchResponse(match));
+
+    return reply.send(buildMatchResponse(match));
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(500).send({ error: 'Failed to save toss' });
   }
 };
 

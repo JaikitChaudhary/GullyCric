@@ -75,6 +75,26 @@ const matchSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    tossWinner: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    decision: {
+      type: String,
+      enum: ['bat', 'bowl', null],
+      default: null,
+    },
+    battingTeam: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    bowlingTeam: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     matchCode: {
       type: String,
       required: true,

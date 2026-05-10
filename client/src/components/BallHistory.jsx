@@ -48,7 +48,7 @@ function BallHistory({ history = [] }) {
   const lastBall = balls.at(-1)?.value || '-';
 
   return (
-    <section className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
+    <section className="theme-surface rounded-[1.75rem] border p-5 backdrop-blur-xl sm:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Ball History</p>

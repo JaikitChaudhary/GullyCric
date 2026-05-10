@@ -12,6 +12,7 @@ import StickyScoreBar from '../components/StickyScoreBar.jsx';
 import BrandLogo from '../components/BrandLogo.jsx';
 import BallHistory from '../components/BallHistory.jsx';
 import ScoringEventOverlay from '../components/ScoringEventOverlay.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const getOwnerTokenStorageKey = (matchCode) => `gullycric:ownerToken:${matchCode}`;
@@ -28,31 +29,43 @@ function getMatchStatus(match) {
   if (match.innings === 2 && match.target) {
     const runsNeeded = Math.max(match.target - match.totalRuns, 0);
     const ballsLeft = Math.max((match.ballsLimit || 0) - (match.balls || 0), 0);
-    const battingTeam = match.teamBName || 'Batting side';
+    const battingTeam = match.bowlingTeam || match.teamBName || 'Batting side';
 
     return runsNeeded === 0
       ? 'Target reached'
       : `${battingTeam} need ${runsNeeded} run${runsNeeded === 1 ? '' : 's'} in ${ballsLeft} ball${ballsLeft === 1 ? '' : 's'}`;
   }
 
-  return `${match.teamAName || match.name || 'Live match'} in progress`;
+  return `${match.battingTeam || match.teamAName || match.name || 'Live match'} in progress`;
 }
 
 function getTeamsByInnings(match) {
-  const teamAName = match?.teamAName || 'Team A';
-  const teamBName = match?.teamBName || 'Team B';
+  const firstInningsBattingTeam = match?.battingTeam || match?.teamAName || 'Team A';
+  const firstInningsBowlingTeam = match?.bowlingTeam || match?.teamBName || 'Team B';
 
   if (match?.innings === 2) {
     return {
-      battingTeam: teamBName,
-      bowlingTeam: teamAName,
+      battingTeam: firstInningsBowlingTeam,
+      bowlingTeam: firstInningsBattingTeam,
     };
   }
 
   return {
-    battingTeam: teamAName,
-    bowlingTeam: teamBName,
+    battingTeam: firstInningsBattingTeam,
+    bowlingTeam: firstInningsBowlingTeam,
   };
+}
+
+function hasScoringStarted(match) {
+  return Boolean(
+    match && (
+      match.totalRuns > 0 ||
+      match.wickets > 0 ||
+      match.balls > 0 ||
+      match.innings > 1 ||
+      (Array.isArray(match.history) && match.history.length > 0)
+    )
+  );
 }
 
 function getCurrentOverBalls(match) {
@@ -170,6 +183,16 @@ function Match() {
 
     loadMatch();
   }, [matchCode]);
+
+  useEffect(() => {
+    if (!match || !matchCode || !ownerToken) {
+      return;
+    }
+
+    if (!match.battingTeam && !match.bowlingTeam && !hasScoringStarted(match)) {
+      navigate(`/match/${matchCode}/toss`, { replace: true });
+    }
+  }, [match, matchCode, navigate, ownerToken]);
 
   useEffect(() => () => {
     if (copyFeedbackTimerRef.current) {
@@ -305,7 +328,7 @@ function Match() {
   };
 
   return (
-    <div className="min-h-screen px-4 pb-5 pt-14 text-slate-100 sm:px-5 sm:pb-6 sm:pt-[4.25rem]">
+    <div className="theme-text min-h-screen px-4 pb-5 pt-14 sm:px-5 sm:pb-6 sm:pt-[4.25rem]">
       <ScoringEventOverlay eventType={scoringEvent} triggerKey={scoringEventKey} />
       {stickyBarData && (
         <StickyScoreBar
@@ -315,8 +338,8 @@ function Match() {
         />
       )}
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center mt-10">
-        <div className="w-full rounded-[2rem] border border-orange-300/10 bg-slate-900/70 p-4 shadow-[0_35px_120px_rgba(2,6,23,0.65)] backdrop-blur-2xl sm:p-6 md:p-8">
-          <header className="mb-6 rounded-[1.75rem] border border-orange-300/10 bg-slate-950/55 px-5 py-5 shadow-[0_12px_40px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+        <div className="theme-surface-strong w-full rounded-[2rem] border p-4 backdrop-blur-2xl sm:p-6 md:p-8">
+          <header className="theme-surface mb-6 rounded-[1.75rem] border px-5 py-5 backdrop-blur-xl">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <BrandLogo
@@ -331,6 +354,7 @@ function Match() {
                 </p>
               </div>
               <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
+                <ThemeToggle />
                 <InstallPrompt canInstall={canInstall} onInstall={promptInstall} />
                 <Link
                   to="/"
@@ -386,7 +410,7 @@ function Match() {
               )}
 
               <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
-                <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
+                <div className="theme-surface rounded-[1.75rem] border p-5 backdrop-blur-xl sm:p-6">
                   <ScoreBoard match={match} />
                   <ActionBar
                     disabled={isMatchOver}
@@ -467,12 +491,28 @@ function Match() {
                   )}
                 </div>
 
-                <div className="rounded-[1.75rem] border border-orange-300/10 bg-slate-950/72 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.45)] backdrop-blur-xl sm:p-6">
+                <div className="theme-surface rounded-[1.75rem] border p-5 backdrop-blur-xl sm:p-6">
                   <h3 className="text-xl font-semibold text-white">Match details</h3>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                     <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
                       <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Teams</p>
                       <p className="mt-2 text-lg font-semibold text-white">{match.teamAName} vs {match.teamBName}</p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Batting First</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{match.battingTeam || match.teamAName || '-'}</p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Bowling First</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{match.bowlingTeam || match.teamBName || '-'}</p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Toss</p>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {match.tossWinner && match.decision
+                          ? `${match.tossWinner} chose to ${match.decision}`
+                          : 'Skipped'}
+                      </p>
                     </div>
                     <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] px-4 py-4">
                       <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Overs</p>
