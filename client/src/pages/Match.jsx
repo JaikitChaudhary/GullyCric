@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ScoreBoard from '../components/ScoreBoard.jsx';
 import ActionBar from '../components/ActionBar.jsx';
@@ -13,9 +13,25 @@ import BrandLogo from '../components/BrandLogo.jsx';
 import BallHistory from '../components/BallHistory.jsx';
 import ScoringEventOverlay from '../components/ScoringEventOverlay.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import { applyLocalScoreAction } from '../utils/localScoring.js';
+import {
+  countPendingScoringEvents,
+  createScoringEventId,
+  enqueueScoringEvent,
+  getQueuedScoringEvents,
+  markScoringEventSynced,
+} from '../utils/scoringQueue.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const getOwnerTokenStorageKey = (matchCode) => `gullycric:ownerToken:${matchCode}`;
+const getMatchSnapshotStorageKey = (matchCode) => `gullycric:matchSnapshot:${matchCode}`;
+
+const ACTION_TYPE_BY_ACTION = {
+  run: 'RUN',
+  wicket: 'WICKET',
+  wide: 'WIDE',
+  undo: 'UNDO',
+};
 
 function getMatchStatus(match) {
   if (!match) {
@@ -108,6 +124,16 @@ function getCurrentOverBalls(match) {
   });
 }
 
+function applyPendingEventsToMatch(serverMatch, pendingEvents) {
+  return pendingEvents.reduce((nextMatch, event) => {
+    try {
+      return applyLocalScoreAction(nextMatch, event.action, event.payload);
+    } catch (error) {
+      return nextMatch;
+    }
+  }, serverMatch);
+}
+
 function Match() {
   const { code: matchCode } = useParams();
   const navigate = useNavigate();
@@ -117,6 +143,7 @@ function Match() {
   const [error, setError] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState(0);
   const [ownerToken, setOwnerToken] = useState('');
   const [copyFeedback, setCopyFeedback] = useState('');
   const [scoringEvent, setScoringEvent] = useState(null);
@@ -125,6 +152,11 @@ function Match() {
   const isMatchOver = match?.isCompleted === true;
   const isOwner = ownerToken.length > 0;
   const [localUndoCount, setLocalUndoCount] = useState(0);
+  const syncInProgressRef = useRef(false);
+  const lastServerMatchRef = useRef(null);
+  const pendingUpdatesRef = useRef(0);
+  const currentMatchRef = useRef(null);
+  const lastEventTimestampRef = useRef(0);
   const serverUndoCount = Number(match?.undoCount) || 0;
   const undoCount = Math.max(serverUndoCount, localUndoCount);
   const hasUndoableAction = Boolean(
@@ -147,7 +179,105 @@ function Match() {
       }
     : null;
 
-  useSocket({ matchCode, setMatch, setNotifications });
+  const setMatchFromServer = useCallback((updatedMatch) => {
+    lastServerMatchRef.current = updatedMatch;
+
+    if (pendingUpdatesRef.current === 0) {
+      currentMatchRef.current = updatedMatch;
+      setMatch(updatedMatch);
+    }
+  }, []);
+
+  useSocket({ matchCode, setMatch: setMatchFromServer, setNotifications });
+
+  const refreshPendingUpdates = useCallback(async () => {
+    if (!matchCode) {
+      pendingUpdatesRef.current = 0;
+      setPendingUpdates(0);
+      return 0;
+    }
+
+    try {
+      const nextPendingUpdates = await countPendingScoringEvents(matchCode);
+      pendingUpdatesRef.current = nextPendingUpdates;
+      setPendingUpdates(nextPendingUpdates);
+      return nextPendingUpdates;
+    } catch (err) {
+      return 0;
+    }
+  }, [matchCode]);
+
+  const submitScoringEvent = useCallback(async (event) => {
+    const response = await fetch(`${API_BASE}/api/match/${matchCode}/${event.action}`, {
+      method: 'POST',
+      headers: {
+        ...(event.action === 'run' ? { 'Content-Type': 'application/json' } : {}),
+        ...(ownerToken ? { 'x-owner-token': ownerToken } : {}),
+        'x-scoring-event-id': event.id,
+      },
+      body: event.action === 'run' ? JSON.stringify(event.payload || {}) : null,
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 403 && matchCode) {
+        window.localStorage.removeItem(getOwnerTokenStorageKey(matchCode));
+        setOwnerToken('');
+      }
+
+      throw new Error(data.error || 'Unable to update score');
+    }
+
+    return data;
+  }, [matchCode, ownerToken]);
+
+  const syncPendingEvents = useCallback(async () => {
+    if (!matchCode || !ownerToken || !navigator.onLine || syncInProgressRef.current) {
+      return;
+    }
+
+    syncInProgressRef.current = true;
+
+    try {
+      let latestSyncedMatch = null;
+      let shouldContinue = true;
+
+      while (shouldContinue && navigator.onLine) {
+        const pendingEvents = await getQueuedScoringEvents(matchCode);
+        pendingUpdatesRef.current = pendingEvents.length;
+        setPendingUpdates(pendingEvents.length);
+
+        if (pendingEvents.length === 0) {
+          break;
+        }
+
+        for (const event of pendingEvents) {
+          try {
+            latestSyncedMatch = await submitScoringEvent(event);
+            await markScoringEventSynced(event);
+            await refreshPendingUpdates();
+          } catch (err) {
+            if (navigator.onLine) {
+              setError(err.message || 'Pending scoring updates will retry automatically.');
+            }
+            shouldContinue = false;
+            break;
+          }
+        }
+      }
+
+      const remainingUpdates = await refreshPendingUpdates();
+      if (remainingUpdates === 0 && latestSyncedMatch) {
+        currentMatchRef.current = latestSyncedMatch;
+        setMatch(latestSyncedMatch);
+      } else if (remainingUpdates === 0 && lastServerMatchRef.current) {
+        currentMatchRef.current = lastServerMatchRef.current;
+        setMatch(lastServerMatchRef.current);
+      }
+    } finally {
+      syncInProgressRef.current = false;
+    }
+  }, [matchCode, ownerToken, refreshPendingUpdates, submitScoringEvent]);
 
   useEffect(() => {
     if (!matchCode) {
@@ -175,14 +305,67 @@ function Match() {
           return;
         }
 
-        setMatch(data);
+        lastServerMatchRef.current = data;
+        window.localStorage.setItem(getMatchSnapshotStorageKey(matchCode), JSON.stringify(data));
+
+        const pendingEvents = await getQueuedScoringEvents(matchCode);
+        pendingUpdatesRef.current = pendingEvents.length;
+        setPendingUpdates(pendingEvents.length);
+        const localMatch = applyPendingEventsToMatch(data, pendingEvents);
+        currentMatchRef.current = localMatch;
+        setMatch(localMatch);
       } catch (err) {
-        setError('Server error while fetching match.');
+        const pendingEvents = await getQueuedScoringEvents(matchCode);
+        const cachedMatch = window.localStorage.getItem(getMatchSnapshotStorageKey(matchCode));
+        pendingUpdatesRef.current = pendingEvents.length;
+        setPendingUpdates(pendingEvents.length);
+
+        if (cachedMatch) {
+          try {
+            const parsedCachedMatch = JSON.parse(cachedMatch);
+            const localMatch = applyPendingEventsToMatch(parsedCachedMatch, pendingEvents);
+            currentMatchRef.current = localMatch;
+            setMatch(localMatch);
+            return;
+          } catch (parseError) {
+            window.localStorage.removeItem(getMatchSnapshotStorageKey(matchCode));
+          }
+        }
+
+        if (pendingEvents.length === 0) {
+          setError('Server error while fetching match.');
+        }
       }
     };
 
     loadMatch();
   }, [matchCode]);
+
+  useEffect(() => {
+    refreshPendingUpdates();
+  }, [refreshPendingUpdates]);
+
+  useEffect(() => {
+    pendingUpdatesRef.current = pendingUpdates;
+  }, [pendingUpdates]);
+
+  useEffect(() => {
+    if (isOnline) {
+      syncPendingEvents();
+    }
+  }, [isOnline, syncPendingEvents]);
+
+  useEffect(() => {
+    if (!matchCode || !match) {
+      return;
+    }
+
+    currentMatchRef.current = match;
+
+    if (pendingUpdatesRef.current === 0) {
+      window.localStorage.setItem(getMatchSnapshotStorageKey(matchCode), JSON.stringify(match));
+    }
+  }, [match, matchCode]);
 
   useEffect(() => {
     if (!match || !matchCode || !ownerToken) {
@@ -269,37 +452,37 @@ function Match() {
     }
 
     setError('');
-    setLoadingAction(true);
+    setLoadingAction(false);
+
+    const payload = action === 'run' ? { runs } : {};
+    const timestamp = Math.max(Date.now(), lastEventTimestampRef.current + 1);
+    lastEventTimestampRef.current = timestamp;
+    const event = {
+      id: createScoringEventId(),
+      matchId: matchCode,
+      action,
+      actionType: ACTION_TYPE_BY_ACTION[action] || action.toUpperCase(),
+      payload,
+      timestamp,
+      synced: false,
+    };
 
     try {
-      const response = await fetch(`${API_BASE}/api/match/${matchCode}/${action}`, {
-        method: 'POST',
-        headers: {
-          ...(action === 'run' ? { 'Content-Type': 'application/json' } : {}),
-          ...(ownerToken ? { 'x-owner-token': ownerToken } : {}),
-        },
-        body: action === 'run' ? JSON.stringify({ runs }) : null,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        if (response.status === 403 && matchCode) {
-          window.localStorage.removeItem(getOwnerTokenStorageKey(matchCode));
-          setOwnerToken('');
-        }
-        setError(data.error || 'Unable to update score');
-        return;
-      }
-      setMatch(data);
+      const optimisticMatch = applyLocalScoreAction(currentMatchRef.current || match, action, payload);
+      await enqueueScoringEvent(event);
+      currentMatchRef.current = optimisticMatch;
+      setMatch(optimisticMatch);
+      await refreshPendingUpdates();
+
       if (action === 'undo') {
-        const nextUndoCount = Number(data?.undoCount) || Math.min(localUndoCount + 1, 2);
-        setLocalUndoCount(nextUndoCount);
+        setLocalUndoCount((currentUndoCount) => Math.min(currentUndoCount + 1, 2));
       } else {
         setLocalUndoCount(0);
       }
+
+      syncPendingEvents();
     } catch (err) {
-      setError('Server error while updating score.');
-    } finally {
-      setLoadingAction(false);
+      setError(err.message || 'Unable to update score');
     }
   };
 
@@ -384,6 +567,15 @@ function Match() {
               <OfflineNotice />
             </div>
           )}
+
+          <div className="mb-6 flex justify-end">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-slate-100 shadow-[0_12px_30px_rgba(2,6,23,0.25)]">
+              <span>{isOnline ? '🟢 Online' : `🔴 Offline (${pendingUpdates} pending updates)`}</span>
+              {isOnline && pendingUpdates > 0 && (
+                <span className="text-amber-200">Syncing {pendingUpdates}</span>
+              )}
+            </div>
+          </div>
 
           {error && (
             <section className="rounded-[1.75rem] border border-rose-500/30 bg-rose-500/10 p-6 text-rose-200 shadow-[0_18px_50px_rgba(244,63,94,0.14)] animate-rise-in">

@@ -14,6 +14,11 @@ const buildMatchResponse = (match, { includeOwnerToken = false } = {}) => {
 
   if (!includeOwnerToken) {
     delete serializedMatch.ownerToken;
+  }
+
+  delete serializedMatch.scoringEventIds;
+
+  if (!includeOwnerToken) {
     return serializedMatch;
   }
 
@@ -35,7 +40,7 @@ const generateMatchCode = async () => {
 
 const findMatchByCode = (matchCode) => Match.findOne({ matchCode });
 
-const findMatchByCodeWithOwnerToken = (matchCode) => Match.findOne({ matchCode }).select('+ownerToken');
+const findMatchByCodeWithOwnerToken = (matchCode) => Match.findOne({ matchCode }).select('+ownerToken +scoringEventIds');
 
 const requireOwnerAccess = (request, reply, match) => {
   const ownerToken = request.headers['x-owner-token'];
@@ -46,6 +51,25 @@ const requireOwnerAccess = (request, reply, match) => {
   }
 
   return true;
+};
+
+const getScoringEventId = (request) => {
+  const headerEventId = request.headers['x-scoring-event-id'];
+  const bodyEventId = request.body?.scoringEventId;
+  const scoringEventId = Array.isArray(headerEventId) ? headerEventId[0] : headerEventId || bodyEventId;
+
+  return typeof scoringEventId === 'string' ? scoringEventId.trim() : '';
+};
+
+const isDuplicateScoringEvent = (match, scoringEventId) =>
+  Boolean(scoringEventId && Array.isArray(match.scoringEventIds) && match.scoringEventIds.includes(scoringEventId));
+
+const rememberScoringEvent = (match, scoringEventId) => {
+  if (!scoringEventId) {
+    return;
+  }
+
+  match.scoringEventIds = [...(match.scoringEventIds || []), scoringEventId].slice(-500);
 };
 
 const getTeamNames = (match) => [match.teamAName || 'Team 1', match.teamBName || 'Team 2'];
@@ -108,6 +132,7 @@ export const createMatch = async (request, reply) => {
       battingTeam: null,
       bowlingTeam: null,
       history: [],
+      scoringEventIds: [],
     });
 
     const io = request.server.io;
@@ -255,6 +280,11 @@ export const addRun = async (request, reply) => {
       return;
     }
 
+    const scoringEventId = getScoringEventId(request);
+    if (isDuplicateScoringEvent(match, scoringEventId)) {
+      return reply.send(buildMatchResponse(match));
+    }
+
     let scoringEvent;
     try {
       scoringEvent = addRunToMatch(match, parsedRuns);
@@ -262,6 +292,7 @@ export const addRun = async (request, reply) => {
       return reply.status(400).send({ error: error.message });
     }
 
+    rememberScoringEvent(match, scoringEventId);
     await match.save();
     emitScoringEvents(request, match, scoringEvent);
 
@@ -285,6 +316,11 @@ export const addWicket = async (request, reply) => {
       return;
     }
 
+    const scoringEventId = getScoringEventId(request);
+    if (isDuplicateScoringEvent(match, scoringEventId)) {
+      return reply.send(buildMatchResponse(match));
+    }
+
     let scoringEvent;
     try {
       scoringEvent = addWicketToMatch(match);
@@ -292,6 +328,7 @@ export const addWicket = async (request, reply) => {
       return reply.status(400).send({ error: error.message });
     }
 
+    rememberScoringEvent(match, scoringEventId);
     await match.save();
     emitScoringEvents(request, match, scoringEvent);
 
@@ -315,6 +352,11 @@ export const addWide = async (request, reply) => {
       return;
     }
 
+    const scoringEventId = getScoringEventId(request);
+    if (isDuplicateScoringEvent(match, scoringEventId)) {
+      return reply.send(buildMatchResponse(match));
+    }
+
     let scoringEvent;
     try {
       scoringEvent = addWideToMatch(match);
@@ -322,6 +364,7 @@ export const addWide = async (request, reply) => {
       return reply.status(400).send({ error: error.message });
     }
 
+    rememberScoringEvent(match, scoringEventId);
     await match.save();
     emitScoringEvents(request, match, scoringEvent);
 
@@ -345,6 +388,11 @@ export const undoAction = async (request, reply) => {
       return;
     }
 
+    const scoringEventId = getScoringEventId(request);
+    if (isDuplicateScoringEvent(match, scoringEventId)) {
+      return reply.send(buildMatchResponse(match));
+    }
+
     let undoResult;
     try {
       undoResult = undoLastAction(match);
@@ -355,6 +403,7 @@ export const undoAction = async (request, reply) => {
       return reply.status(400).send({ error: error.message });
     }
 
+    rememberScoringEvent(match, scoringEventId);
     await match.save();
     emitMatchEvent(request, 'scoreUpdate', buildMatchResponse(match));
 

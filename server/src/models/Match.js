@@ -170,6 +170,11 @@ const matchSchema = new mongoose.Schema(
       type: [historySchema],
       default: [],
     },
+    scoringEventIds: {
+      type: [String],
+      default: [],
+      select: false,
+    },
     isDeleted: {
       type: Boolean,
       default: false,
