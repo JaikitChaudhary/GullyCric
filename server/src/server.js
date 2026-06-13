@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
 import matchRoutes from './routes/matchRoutes.js';
+import tournamentRoutes from './routes/tournamentRoutes.js';
 import { listMatches } from './controllers/matchController.js';
 import { registerMatchSocket } from './socket/matchSocket.js';
 
@@ -31,6 +32,8 @@ const start = async () => {
 
   await app.register(matchRoutes, { prefix: '/match' });
   await app.register(matchRoutes, { prefix: '/api/match' });
+  await app.register(tournamentRoutes, { prefix: '/tournaments' });
+  await app.register(tournamentRoutes, { prefix: '/api/tournaments' });
 
   const io = new Server(app.server, {
     cors: {

@@ -9,9 +9,9 @@ import MatchSetup from '../components/MatchSetup.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import useInstallPrompt from '../hooks/useInstallPrompt.js';
 import useOnlineStatus from '../hooks/useOnlineStatus.js';
+import { getOrCreateDeviceId } from '../utils/deviceId.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-const DEVICE_ID_STORAGE_KEY = 'gullycric:deviceId';
 
 const getOwnerTokenStorageKey = (matchCode) => `gullycric:ownerToken:${matchCode}`;
 
@@ -39,21 +39,6 @@ function getRandomTeamNames() {
     teamA: shuffled[0],
     teamB: shuffled[1]
   };
-}
-
-function getOrCreateDeviceId() {
-  const existingDeviceId = window.localStorage.getItem(DEVICE_ID_STORAGE_KEY);
-
-  if (existingDeviceId) {
-    return existingDeviceId;
-  }
-
-  const deviceId = window.crypto?.randomUUID
-    ? window.crypto.randomUUID()
-    : `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
-  return deviceId;
 }
 
 function Home() {
@@ -245,6 +230,13 @@ function Home() {
             >
               {showForm ? 'Hide Match Setup' : 'Create Match'}
             </button>
+            {/* <button
+              type="button"
+              onClick={() => navigate('/tournaments')}
+              className="theme-secondary-button inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              Tournaments
+            </button> */}
           </div>
 
           {error && (
