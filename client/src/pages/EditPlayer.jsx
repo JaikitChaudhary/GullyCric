@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import BrandLogo from '../components/BrandLogo.jsx';
+import { useNavigate, useParams } from 'react-router-dom';
+import AppHeader from '../components/AppHeader.jsx';
 import Card from '../components/Card.jsx';
 import Footer from '../components/Footer.jsx';
-import ThemeToggle from '../components/ThemeToggle.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -11,6 +10,7 @@ function EditPlayer() {
   const { id, playerId } = useParams();
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [nickName, setNickName] = useState('');
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +31,7 @@ function EditPlayer() {
         }
 
         setName(data.name || '');
+        setNickName(data.nickName || '');
         setMobile(data.mobile || '');
       } catch (err) {
         setError('Server error while fetching player.');
@@ -59,6 +60,7 @@ function EditPlayer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
+          nickName: nickName.trim(),
           mobile: mobile.trim(),
         }),
       });
@@ -81,24 +83,9 @@ function EditPlayer() {
     <div className="theme-text min-h-screen p-4">
       <div className="mx-auto min-h-screen w-full max-w-md">
         <div className="theme-surface-strong min-h-screen rounded-[2rem] border p-5 backdrop-blur-xl">
-          <header className="theme-surface sticky top-4 z-10 rounded-[1.75rem] border px-5 py-5 backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <BrandLogo heightClassName="h-9" nameClassName="text-2xl" priority />
-                <p className="mt-3 text-xs uppercase tracking-[0.28em] text-orange-200/75">Edit Player</p>
-              </div>
-              <ThemeToggle />
-            </div>
-          </header>
+          <AppHeader title="Edit Player" backTo={`/tournaments/${id}/players`} />
 
           <main className="mt-6 space-y-5">
-            <Link
-              to={`/tournaments/${id}/players`}
-              className="theme-secondary-button inline-flex w-full items-center justify-center rounded-full border px-4 py-3 text-sm font-semibold transition-all duration-200 active:scale-95"
-            >
-              Back to Players
-            </Link>
-
             {loading && (
               <p className="rounded-[1.25rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
                 Loading player...
@@ -118,6 +105,16 @@ function EditPlayer() {
                       onChange={(event) => setName(event.target.value)}
                       className="theme-input mt-2 w-full rounded-[1.25rem] border px-4 py-3 outline-none focus:border-orange-300/60"
                       placeholder="Player name"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-200">Nick Name</span>
+                    <input
+                      value={nickName}
+                      onChange={(event) => setNickName(event.target.value)}
+                      className="theme-input mt-2 w-full rounded-[1.25rem] border px-4 py-3 outline-none focus:border-orange-300/60"
+                      placeholder="Short name"
                     />
                   </label>
 

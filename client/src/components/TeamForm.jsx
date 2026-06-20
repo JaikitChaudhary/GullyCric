@@ -138,7 +138,7 @@ function TeamForm({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-white">{player.name}</span>
                   <span className="mt-1 block text-xs text-slate-400">
-                    {isAssigned ? 'Already in another team' : player.mobile}
+                    {isAssigned ? 'Already in another team' : `${player.nickName ? `${player.nickName} · ` : ''}${player.mobile}`}
                   </span>
                 </span>
               </button>

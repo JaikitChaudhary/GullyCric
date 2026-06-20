@@ -7,6 +7,7 @@ import matchRoutes from './routes/matchRoutes.js';
 import tournamentRoutes from './routes/tournamentRoutes.js';
 import { listMatches } from './controllers/matchController.js';
 import { registerMatchSocket } from './socket/matchSocket.js';
+import { registerDraftSocket } from './socket/draftSocket.js';
 
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = '0.0.0.0';
@@ -44,6 +45,7 @@ const start = async () => {
 
   app.decorate('io', io);
   registerMatchSocket(io);
+  registerDraftSocket(io);
 
   app.log.info('Starting GullyCric server...');
 

@@ -8,7 +8,9 @@ const buildPlayerResponse = (player) => {
   return {
     id: serializedPlayer.id || serializedPlayer._id?.toString(),
     tournamentId: serializedPlayer.tournamentId?.toString(),
+    createdBy: serializedPlayer.createdBy,
     name: serializedPlayer.name,
+    nickName: serializedPlayer.nickName || '',
     mobile: serializedPlayer.mobile,
   };
 };
@@ -18,26 +20,39 @@ const ensureTournamentExists = async (tournamentId) => {
     return false;
   }
 
-  return Boolean(await Tournament.exists({ _id: tournamentId }));
+  const tournament = await Tournament.findById(tournamentId).lean();
+
+  return tournament || null;
 };
+
+const buildGlobalPlayerQuery = (tournament) => ({
+  $or: [
+    { createdBy: tournament.createdBy },
+    { tournamentId: tournament._id },
+  ],
+});
 
 export const listPlayers = async (request, reply) => {
   try {
     const { id: tournamentId } = request.params;
     const query = request.query.q?.trim();
 
-    if (!(await ensureTournamentExists(tournamentId))) {
+    const tournament = await ensureTournamentExists(tournamentId);
+
+    if (!tournament) {
       return reply.status(404).send({ error: 'Tournament not found' });
     }
 
-    const playerQuery = { tournamentId };
+    const playerQuery = buildGlobalPlayerQuery(tournament);
 
     if (query) {
       const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      playerQuery.$or = [
-        { name: { $regex: escapedQuery, $options: 'i' } },
-        { mobile: { $regex: escapedQuery, $options: 'i' } },
-      ];
+      playerQuery.$and = [{
+        $or: [
+          { name: { $regex: escapedQuery, $options: 'i' } },
+          { nickName: { $regex: escapedQuery, $options: 'i' } },
+        ],
+      }];
     }
 
     const players = await Player.find(playerQuery)
@@ -55,11 +70,14 @@ export const listPlayers = async (request, reply) => {
 export const createPlayer = async (request, reply) => {
   try {
     const { id: tournamentId } = request.params;
-    const { name, mobile } = request.body || {};
+    const { name, nickName, mobile } = request.body || {};
     const sanitizedName = name?.trim();
+    const sanitizedNickName = nickName?.trim() || '';
     const sanitizedMobile = mobile?.trim();
 
-    if (!(await ensureTournamentExists(tournamentId))) {
+    const tournament = await ensureTournamentExists(tournamentId);
+
+    if (!tournament) {
       return reply.status(404).send({ error: 'Tournament not found' });
     }
 
@@ -67,9 +85,19 @@ export const createPlayer = async (request, reply) => {
       return reply.status(400).send({ error: 'Player name and mobile are required' });
     }
 
+    const existingPlayer = await Player.findOne({
+      createdBy: tournament.createdBy,
+      mobile: sanitizedMobile,
+    });
+
+    if (existingPlayer) {
+      return reply.status(200).send(buildPlayerResponse(existingPlayer));
+    }
+
     const player = await Player.create({
-      tournamentId,
+      createdBy: tournament.createdBy,
       name: sanitizedName,
+      nickName: sanitizedNickName,
       mobile: sanitizedMobile,
     });
 
@@ -88,7 +116,16 @@ export const getPlayer = async (request, reply) => {
       return reply.status(404).send({ error: 'Player not found' });
     }
 
-    const player = await Player.findOne({ _id: playerId, tournamentId }).lean();
+    const tournament = await ensureTournamentExists(tournamentId);
+
+    if (!tournament) {
+      return reply.status(404).send({ error: 'Tournament not found' });
+    }
+
+    const player = await Player.findOne({
+      _id: playerId,
+      ...buildGlobalPlayerQuery(tournament),
+    }).lean();
 
     if (!player) {
       return reply.status(404).send({ error: 'Player not found' });
@@ -104,8 +141,9 @@ export const getPlayer = async (request, reply) => {
 export const updatePlayer = async (request, reply) => {
   try {
     const { id: tournamentId, playerId } = request.params;
-    const { name, mobile } = request.body || {};
+    const { name, nickName, mobile } = request.body || {};
     const sanitizedName = name?.trim();
+    const sanitizedNickName = nickName?.trim() || '';
     const sanitizedMobile = mobile?.trim();
 
     if (!mongoose.isValidObjectId(tournamentId) || !mongoose.isValidObjectId(playerId)) {
@@ -116,9 +154,15 @@ export const updatePlayer = async (request, reply) => {
       return reply.status(400).send({ error: 'Player name and mobile are required' });
     }
 
+    const tournament = await ensureTournamentExists(tournamentId);
+
+    if (!tournament) {
+      return reply.status(404).send({ error: 'Tournament not found' });
+    }
+
     const player = await Player.findOneAndUpdate(
-      { _id: playerId, tournamentId },
-      { name: sanitizedName, mobile: sanitizedMobile },
+      { _id: playerId, ...buildGlobalPlayerQuery(tournament) },
+      { name: sanitizedName, nickName: sanitizedNickName, mobile: sanitizedMobile },
       { new: true }
     );
 

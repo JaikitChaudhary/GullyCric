@@ -53,6 +53,7 @@ function Home() {
   const [creatingMatch, setCreatingMatch] = useState(false);
   const [deviceId, setDeviceId] = useState('');
   const [matchHistory, setMatchHistory] = useState([]);
+  const [recentTournaments, setRecentTournaments] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -82,12 +83,26 @@ function Home() {
     }
   };
 
+  const fetchRecentTournaments = async (currentDeviceId) => {
+    try {
+      const response = await fetch(`${API_BASE}/tournaments?createdBy=${encodeURIComponent(currentDeviceId)}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setRecentTournaments(Array.isArray(data) ? data.slice(0, 3) : []);
+      }
+    } catch (err) {
+      setRecentTournaments([]);
+    }
+  };
+
   useEffect(() => {
     if (!deviceId) {
       return;
     }
 
     fetchHistory(deviceId);
+    fetchRecentTournaments(deviceId);
   }, [deviceId]);
 
   const createMatch = async ({ teamAName: nextTeamAName, teamBName: nextTeamBName, overs: nextOvers }) => {
@@ -186,10 +201,10 @@ function Home() {
   };
 
   return (
-    <div className="theme-text min-h-screen p-4">
-      <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center">
-        <div className="theme-surface-strong w-full rounded-[2rem] border p-6 backdrop-blur-xl md:p-8">
-          <header className="theme-surface sticky top-4 z-10 mb-8 rounded-[1.75rem] border px-5 py-5 backdrop-blur">
+    <div className="theme-text min-h-screen p-3">
+      <div className="mx-auto min-h-screen max-w-5xl">
+        <div className="w-full">
+          <header className="theme-surface sticky top-3 z-10 mb-4 rounded-[1.5rem] border px-4 py-4 backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <BrandLogo
@@ -199,7 +214,7 @@ function Home() {
                   className="drop-shadow-[0_0_22px_rgba(249,115,22,0.18)]"
                 />
                 <p className="text-sm uppercase tracking-[0.28em] text-orange-200/75">Real-time Gully Cricket</p>
-                <p className="mt-2 max-w-2xl text-slate-300">Create a match, share the clean live link, and keep the score moving with a fast mobile-friendly scorer.</p>
+                <p className="mt-1 max-w-2xl text-sm text-slate-300">Fast scoring for matches and tournaments.</p>
               </div>
               <div className="flex items-center gap-2">
                 <ThemeToggle />
@@ -214,30 +229,36 @@ function Home() {
             </div>
           )}
 
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <section className="theme-surface rounded-[1.5rem] border p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-orange-300/70">Quick Actions</p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={handleQuickStart}
               disabled={creatingMatch}
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-300 px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 hover:scale-105 hover:shadow-[0_22px_50px_rgba(249,115,22,0.36)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-16 flex-col items-center justify-center gap-1 rounded-[1.25rem] bg-gradient-to-r from-orange-500 to-amber-300 px-2 py-3 text-xs font-semibold text-slate-950 shadow-[0_18px_40px_rgba(249,115,22,0.28)] transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {creatingMatch ? 'Creating...' : 'Quick 5 Over Match'}
+              <span className="text-lg">⚡</span>
+              {creatingMatch ? 'Creating' : 'Quick Match'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm((value) => !value)}
-              className="theme-secondary-button inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
+              className="theme-secondary-button inline-flex min-h-16 flex-col items-center justify-center gap-1 rounded-[1.25rem] border px-2 py-3 text-xs font-semibold transition-all duration-200 active:scale-95"
             >
-              {showForm ? 'Hide Match Setup' : 'Create Match'}
+              <span className="text-lg">🏏</span>
+              {showForm ? 'Hide Setup' : 'Create Match'}
             </button>
-            {/* <button
+            <button
               type="button"
               onClick={() => navigate('/tournaments')}
-              className="theme-secondary-button inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
+              className="theme-secondary-button inline-flex min-h-16 flex-col items-center justify-center gap-1 rounded-[1.25rem] border px-2 py-3 text-xs font-semibold transition-all duration-200 active:scale-95"
             >
-              Tournaments
-            </button> */}
-          </div>
+              <span className="text-lg">🏆</span>
+              Tournament
+            </button>
+            </div>
+          </section>
 
           {error && (
             <p className="text-sm text-rose-400">{error}</p>
@@ -256,7 +277,49 @@ function Home() {
               submitting={creatingMatch}
             />
           ) : (
-            <section className="mt-8 grid gap-4 md:grid-cols-3">
+            <>
+            <section className="theme-surface mt-4 rounded-[1.5rem] border p-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-orange-300/70">Tournaments</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">Recent Tournaments</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/tournaments/create')}
+                  className="theme-secondary-button rounded-full border px-3 py-2 text-xs font-semibold"
+                >
+                  + New
+                </button>
+              </div>
+              {recentTournaments.length === 0 ? (
+                <p className="mt-4 rounded-[1rem] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-400">
+                  No tournaments yet.
+                </p>
+              ) : (
+                <div className="mt-4 grid gap-2">
+                  {recentTournaments.map((tournament) => (
+                    <button
+                      key={tournament.id}
+                      type="button"
+                      onClick={() => navigate(`/tournaments/${tournament.id}`)}
+                      className="theme-card flex items-center gap-3 rounded-[1.25rem] border p-3 text-left"
+                    >
+                      {tournament.logo ? (
+                        <img src={tournament.logo} alt="" className="h-10 w-10 rounded-[0.85rem] object-cover" />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[0.85rem] bg-orange-400/10">🏆</span>
+                      )}
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-white">{tournament.name}</span>
+                        <span className="text-xs text-slate-400">{tournament.overs} overs</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="mt-4 grid gap-3 md:grid-cols-3">
               <Card>
                 <p className="text-sm uppercase tracking-[0.22em] text-orange-300/70">Live</p>
                 <h2 className="mt-2 text-xl font-semibold text-white">Fast Match Creation</h2>
@@ -276,8 +339,9 @@ function Home() {
                 <p>Create a match to start scoring and get a shareable link.</p>
               </div>
             </section>
+            </>
           )}
-          <section className="theme-surface mt-8 rounded-[1.75rem] border p-5 relative">
+          <section className="theme-surface relative mt-4 rounded-[1.5rem] border p-4">
             {deleteTarget && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 px-4 py-5 backdrop-blur-sm rounded-[1.75rem]">
                 <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-slate-900/95 p-6 text-left shadow-[0_30px_120px_rgba(0,0,0,0.4)]">

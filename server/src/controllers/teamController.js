@@ -11,6 +11,7 @@ const buildPlayerSummary = (player) => {
   return {
     id: player.id || player._id?.toString(),
     name: player.name,
+    nickName: player.nickName || '',
     mobile: player.mobile,
   };
 };
@@ -37,8 +38,17 @@ const ensureTournamentExists = async (tournamentId) => {
     return false;
   }
 
-  return Boolean(await Tournament.exists({ _id: tournamentId }));
+  const tournament = await Tournament.findById(tournamentId).lean();
+
+  return tournament || null;
 };
+
+const buildGlobalPlayerQuery = (tournament) => ({
+  $or: [
+    { createdBy: tournament.createdBy },
+    { tournamentId: tournament._id },
+  ],
+});
 
 const normalizePlayerIds = (playerIds, captainPlayerId) => {
   const ids = Array.isArray(playerIds) ? playerIds : [];
@@ -66,7 +76,16 @@ const validateTeamPayload = async ({ tournamentId, teamName, captainPlayerId, pl
     return { error: 'Select valid players for the team' };
   }
 
-  const players = await Player.find({ _id: { $in: normalizedPlayerIds }, tournamentId }).lean();
+  const tournament = await Tournament.findById(tournamentId).lean();
+
+  if (!tournament) {
+    return { error: 'Tournament not found' };
+  }
+
+  const players = await Player.find({
+    _id: { $in: normalizedPlayerIds },
+    ...buildGlobalPlayerQuery(tournament),
+  }).lean();
 
   if (players.length !== normalizedPlayerIds.length) {
     return { error: 'All selected players must belong to this tournament' };

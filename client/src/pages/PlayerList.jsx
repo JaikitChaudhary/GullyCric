@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import BrandLogo from '../components/BrandLogo.jsx';
+import AppHeader from '../components/AppHeader.jsx';
 import Card from '../components/Card.jsx';
 import Footer from '../components/Footer.jsx';
-import ThemeToggle from '../components/ThemeToggle.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -60,7 +59,7 @@ function PlayerList() {
 
     return players.filter((player) =>
       player.name.toLowerCase().includes(normalizedSearch) ||
-      player.mobile.toLowerCase().includes(normalizedSearch)
+      (player.nickName || '').toLowerCase().includes(normalizedSearch)
     );
   }, [players, search]);
 
@@ -68,28 +67,19 @@ function PlayerList() {
     <div className="theme-text min-h-screen p-4">
       <div className="mx-auto min-h-screen w-full max-w-md">
         <div className="theme-surface-strong relative min-h-screen rounded-[2rem] border p-5 pb-24 backdrop-blur-xl">
-          <header className="theme-surface sticky top-4 z-10 rounded-[1.75rem] border px-5 py-5 backdrop-blur">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <BrandLogo heightClassName="h-9" nameClassName="text-2xl" priority />
-                <p className="mt-3 text-xs uppercase tracking-[0.28em] text-orange-200/75">Player Pool</p>
-              </div>
-              <ThemeToggle />
-            </div>
-          </header>
+          <AppHeader
+            title="Players"
+            backTo={`/tournaments/${id}`}
+            actionLabel="Add Player"
+            actionIcon="+"
+            onAction={() => navigate(`/tournaments/${id}/players/add`)}
+          />
 
           <main className="mt-6 space-y-5">
-            <Link
-              to={`/tournaments/${id}`}
-              className="theme-secondary-button inline-flex w-full items-center justify-center rounded-full border px-4 py-3 text-sm font-semibold transition-all duration-200 active:scale-95"
-            >
-              Back to Tournament
-            </Link>
-
             <Card className="p-5">
               <p className="text-xs uppercase tracking-[0.24em] text-orange-300/70">Players</p>
-              <h1 className="mt-2 text-2xl font-semibold text-white">{tournament?.name || 'Tournament Players'}</h1>
-              <p className="mt-2 text-sm text-slate-400">{players.length} players in pool</p>
+              <h1 className="mt-2 text-2xl font-semibold text-white">Global Player Pool</h1>
+              <p className="mt-2 text-sm text-slate-400">{players.length} reusable players</p>
             </Card>
 
             <label className="block">
@@ -98,7 +88,7 @@ function PlayerList() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="theme-input w-full rounded-[1.25rem] border px-4 py-3 outline-none focus:border-orange-300/60"
-                placeholder="Search player"
+                placeholder="Search by name or nick name"
               />
             </label>
 
@@ -131,7 +121,9 @@ function PlayerList() {
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-white">{player.name}</p>
-                      <p className="mt-1 text-sm text-slate-400">{player.mobile}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {player.nickName ? `${player.nickName} · ` : ''}{player.mobile}
+                      </p>
                     </div>
                     <button
                       type="button"

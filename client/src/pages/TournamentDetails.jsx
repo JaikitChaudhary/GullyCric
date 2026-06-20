@@ -129,6 +129,18 @@ function TournamentDetails() {
                 >
                   Teams
                 </Link>
+                <Link
+                  to={`/tournaments/${id}/points-table`}
+                  className="theme-secondary-button inline-flex w-full items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95"
+                >
+                  Points Table
+                </Link>
+                {/* <Link
+                  to={`/tournaments/${id}/draft`}
+                  className="theme-secondary-button inline-flex w-full items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95"
+                >
+                  Captain Draft
+                </Link> */}
               </>
             )}
           </main>
